@@ -20,6 +20,8 @@ return new class extends Migration
             // $table->foreignId('package_id')->constrained('packages')->onDelete('cascade');
             $table->string('phone_number')->nullable();
             $table->string('ip_address')->unique();
+            $table->string('router_mac')->nullable();
+            $table->string('interface_name')->nullable();
             $table->timestamps();
             
             $table->index(['lat', 'lng']);

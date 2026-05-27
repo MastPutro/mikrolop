@@ -33,6 +33,10 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        //Buat Token untuk API
+        $user = Auth::user();
+        $token = $user->createToken('api-token')->plainTextToken;
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

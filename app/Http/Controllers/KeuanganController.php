@@ -639,5 +639,17 @@ class KeuanganController extends Controller
             throw $e;
         }
     }
+
+    /**
+     * Display History of payments page
+     */
+    public function history()
+    {
+        $invoices = Invoice::all();
+
+        return Inertia::render('ManajemenKeuangan/History', [
+            'invoices' => $invoices
+        ]);
+    }
 }
 

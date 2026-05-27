@@ -263,7 +263,7 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                             <p className="text-sm text-gray-600 mt-1">Total: {customers.length} Customer</p>
                         </div>
                         <div className="flex gap-2">
-                            <button
+                            {/* <button
                                 onClick={syncCustomerStatus}
                                 disabled={syncing || loading}
                                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 flex items-center gap-2"
@@ -284,7 +284,7 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                         Sync Sekarang
                                     </>
                                 )}
-                            </button>
+                            </button> */}
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
@@ -493,7 +493,7 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                 })}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="active">Aktif</option>
+                                {/* <option value="active">Aktif</option> */}
                                 <option value="inactive">Non-Aktif</option>
                                 <option value="suspended">Suspended</option>
                             </select>

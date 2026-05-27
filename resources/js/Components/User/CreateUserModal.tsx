@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import MapLocationSelector from './MapLocationSelector';
-import { stat } from 'fs';
+// import { stat } from 'fs';
 
 interface ODP {
     id: number;
@@ -27,13 +27,15 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
 
     const [formData, setFormData] = useState({
         name: '',
-        lat: -6.2088,
-        lng: 106.8456,
+        lat: -7.47733500,
+        lng: 112.56159480,
         odp_id: '',
         package_id: '',
-        status: 'active',
+        status: 'suspended',
         phone_number: '',
         ip_address: '',
+        router_mac: '',
+        interface_name: 'N/A',
         sync_with_server: false,
     });
 
@@ -90,13 +92,15 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
             // Reset form
             setFormData({
                 name: '',
-                lat: -6.2088,
-                lng: 106.8456,
+                lat: -7.47733500,
+                lng: 112.56159480,
                 odp_id: '',
                 package_id: '',
-                status: 'active',
+                status: 'suspended',
                 phone_number: '',
                 ip_address: '',
+                router_mac: '',
+                interface_name: 'N/A',
                 sync_with_server: false,
             });
 
@@ -166,7 +170,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
                                 ))}
                             </select>
                         </div>
-                        <div>
+                        {/* <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Status *
                             </label>
@@ -175,12 +179,14 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
                                 value={formData.status}
                                 onChange={handleChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                defaultValue="suspended"
+                                disabled
                             >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                                 <option value="suspended">Suspended</option>
                             </select>
-                        </div>
+                        </div> */}
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -216,7 +222,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Alamat IP
+                                Alamat IP *
                             </label>
                             <input
                                 type="text"
@@ -225,8 +231,35 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, odps, pack
                                 onChange={handleChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Contoh: 192.168.1.1"
+                                required
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Router MAC Address
+                            </label>
+                            <input
+                                type="text"
+                                name="router_mac"
+                                value={formData.router_mac}
+                                onChange={handleChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: 00:1A:2B:3C:4D:5E"
+                            />
+                        </div>
+                        {/* <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Interface Name
+                            </label>
+                            <input
+                                type="text"
+                                name="interface_name"
+                                value={formData.interface_name}
+                                onChange={handleChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: ether1"
+                            />
+                        </div> */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Sinkronkan dengan Server

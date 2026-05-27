@@ -15,11 +15,18 @@ interface ODP {
     name: string;
     lat: number;
     lng: number;
-    server_id: number;
+    server_id: number | null;
+    parent_id: number | null;
     status: string;
     ports: number;
     used_ports: number;
+    depth?: number;
+    is_leaf?: boolean;
+    root_server?: Server;
     server?: Server;
+    parent?: ODP;
+    parent_odp?: ODP;
+    child_odps?: ODP[];
 }
 
 export default function ManajemenIndex(props: { auth: any; errors: any; odps: ODP[]; servers: Server[] }) {
@@ -41,7 +48,9 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
     const filteredOdps = odps.filter((odp) => {
         const matchesSearch = odp.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = filterStatus === 'all' || odp.status === filterStatus;
-        const matchesServer = filterServer === 'all' || odp.server_id === parseInt(filterServer);
+        // Get the root server either from server_id or from parent hierarchy
+        const rootServerId = odp.server_id || odp.root_server?.id;
+        const matchesServer = filterServer === 'all' || rootServerId === parseInt(filterServer);
         return matchesSearch && matchesStatus && matchesServer;
     });
 
@@ -124,6 +133,7 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                 onClose={handleCreateModalClose}
                 onSuccess={handleCreateSuccess}
                 servers={props.servers || []}
+                odps={odps}
             />
 
             <UpdateODPModal
@@ -131,6 +141,7 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                 onClose={handleUpdateModalClose}
                 onSuccess={handleUpdateSuccess}
                 servers={props.servers || []}
+                odps={odps}
                 odp={selectedODP}
             />
 
@@ -246,11 +257,11 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hierarchy</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server / Parent</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Port</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Port</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -260,11 +271,50 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                                     paginatedOdps.map((odp) => {
                                         const usagePercentage = odp.ports > 0 ? (odp.used_ports / odp.ports) * 100 : 0;
                                         const statusColor = odp.status === 'online' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                                        const isRoot = odp.server_id !== null && odp.parent_id === null;
+                                        const isLeaf = odp.is_leaf ?? (odp.child_odps?.length === 0);
                                         
                                         return (
                                             <tr key={odp.id}>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{odp.id}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{odp.name}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            {isRoot ? (
+                                                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">Root</span>
+                                                            ) : (
+                                                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">Child</span>
+                                                            )}
+                                                        </div>
+                                                        {odp.depth !== undefined && (
+                                                            <span className="text-xs text-gray-600">Level: {odp.depth}</span>
+                                                        )}
+                                                        {isLeaf && !isRoot && (
+                                                            <span className="text-xs text-gray-500">Leaf Node</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {isRoot ? (
+                                                        odp.server?.name || 'N/A'
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1">
+                                                            {odp.parent_odp?.name && (
+                                                                <div className="text-xs">
+                                                                    <span className="text-gray-600">Parent: </span>
+                                                                    <span className="font-medium text-blue-600">{odp.parent_odp.name}</span>
+                                                                </div>
+                                                            )}
+                                                            {odp.root_server?.name && (
+                                                                <div className="text-xs">
+                                                                    <span className="text-gray-600">Server: </span>
+                                                                    <span className="font-medium">{odp.root_server.name}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     <a 
                                                         href={`https://maps.google.com/?q=${odp.lat},${odp.lng}`}
@@ -275,19 +325,15 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                                                         Lihat
                                                     </a>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {odp.server?.name || 'N/A'}
-                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                                                         {odp.status === 'online' ? 'Online' : 'Offline'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{odp.ports}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{odp.used_ports}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     <div className="flex items-center">
-                                                        <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
                                                             <div
                                                                 className={`h-2 rounded-full transition-all ${
                                                                     usagePercentage > 80 ? 'bg-red-500' : usagePercentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
@@ -317,7 +363,7 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                                        <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                                             {filteredOdps.length === 0 && odps.length > 0 ? 'Tidak ada hasil pencarian' : 'Belum ada data ODP'}
                                         </td>
                                     </tr>

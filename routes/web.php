@@ -10,8 +10,8 @@ use App\Http\Controllers\ManajemenODPController;
 use App\Http\Controllers\ManajemenUserController;
 use App\Http\Controllers\ManajemenPaketController;
 use App\Http\Controllers\ServerController;
-use App\Http\Controllers\InjectScriptController;
 use App\Http\Controllers\KeuanganController;
+use App\Http\Controllers\HelpdeskController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -45,8 +45,14 @@ Route::middleware('auth')->group(function () {
     // Opsi Server page
     Route::get('/opsi-server', [ServerController::class, 'index'])->name('opsi.server.index');
 
-    // Inject Script page
-    Route::get('/inject-script', [InjectScriptController::class, 'index'])->name('inject.script.index');
+    // Helpdesk page
+    Route::get('/helpdesk', [HelpdeskController::class, 'index'])->name('helpdesk.index');
+    Route::get('/helpdesk/create', [HelpdeskController::class, 'create'])->name('helpdesk.create');
+    Route::get('/helpdesk/{id}', [HelpdeskController::class, 'show'])->name('helpdesk.show');
+    Route::get('/helpdesk/{id}/edit', [HelpdeskController::class, 'edit'])->name('helpdesk.edit');
+
+    // History of payments page
+    Route::get('/history', [KeuanganController::class, 'history'])->name('history.index');
 });
 
 // Public payment page (no authentication required)

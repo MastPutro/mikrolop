@@ -16,15 +16,23 @@ interface BandwidthData {
     tx: number;
 }
 
+interface InterfaceSnapshot {
+    name: string;
+    rxBytes: number;
+    txBytes: number;
+    timestamp: number;
+}
+
 export default function MikrotikIndex({ resources: initialResources, interfaces: initialInterfaces, ethernetInterfaces: initialEthernetInterfaces = [], error: initialError }: Props) {
-    const [resources, setResources] = useState(initialResources);
-    const [interfaces, setInterfaces] = useState(initialInterfaces);
-    const [ethernetInterfaces, setEthernetInterfaces] = useState(initialEthernetInterfaces);
+    const [resources, setResources] = useState(initialResources || { 'cpu-load': 0, 'uptime': 'N/A', 'board-name': 'Unknown' });
+    const [interfaces, setInterfaces] = useState(initialInterfaces || []);
+    const [ethernetInterfaces, setEthernetInterfaces] = useState(initialEthernetInterfaces || []);
     const [error, setError] = useState(initialError);
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(new Date());
     const [selectedInterface, setSelectedInterface] = useState(initialEthernetInterfaces?.[0]?.name || '');
     const [bandwidthData, setBandwidthData] = useState<BandwidthData[]>([]);
+    const [prevSnapshot, setPrevSnapshot] = useState<InterfaceSnapshot | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -33,8 +41,10 @@ export default function MikrotikIndex({ resources: initialResources, interfaces:
                 const response = await fetch(route('mikrotik.getResourcesApi'));
                 if (!response.ok) throw new Error('Failed to fetch data');
                 const data = await response.json();
-                setResources(data.resources);
-                setInterfaces(data.interfaces);
+                
+                // Ensure data has required properties with defaults
+                setResources(data.resources || { 'cpu-load': 0, 'uptime': 'N/A', 'board-name': 'Unknown' });
+                setInterfaces(data.interfaces || []);
                 setEthernetInterfaces(data.ethernetInterfaces || []);
                 
                 // Set selected interface jika belum dipilih
@@ -46,6 +56,7 @@ export default function MikrotikIndex({ resources: initialResources, interfaces:
                 setLastUpdate(new Date());
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Gagal mengambil data');
+                // Keep previous data on error
             } finally {
                 setIsLoading(false);
             }
@@ -54,23 +65,54 @@ export default function MikrotikIndex({ resources: initialResources, interfaces:
         // Fetch immediately on mount
         fetchData();
 
-        // Set up interval for polling every 5 seconds
-        const interval = setInterval(fetchData, 5000);
+        // Set up interval for polling every 15 seconds
+        const interval = setInterval(fetchData, 15000); // 15 detik
 
         return () => clearInterval(interval);
     }, []);
 
     // Update bandwidth data setiap kali interface berubah atau data diperbarui
+    // Calculate real-time bandwidth rate by tracking byte deltas
     useEffect(() => {
-        if (selectedInterface) {
+        if (selectedInterface && interfaces.length > 0) {
             const iface = interfaces.find(i => i.name === selectedInterface);
             if (iface) {
-                const rxBytes = parseInt(iface['rx-byte']) || 0;
-                const txBytes = parseInt(iface['tx-byte']) || 0;
+                const rxBytes = parseInt(iface['rx-byte'] || iface['ifInOctets'] || 0) || 0;
+                const txBytes = parseInt(iface['tx-byte'] || iface['ifOutOctets'] || 0) || 0;
+                const currentTime = Date.now();
                 
-                // Konversi ke Mbps
-                const rxMbps = (rxBytes * 8) / 1000000;
-                const txMbps = (txBytes * 8) / 1000000;
+                let rxMbps = 0;
+                let txMbps = 0;
+
+                // Calculate bandwidth rate using delta from previous snapshot
+                if (prevSnapshot && prevSnapshot.name === selectedInterface) {
+                    const timeDeltaSeconds = (currentTime - prevSnapshot.timestamp) / 1000;
+                    
+                    if (timeDeltaSeconds > 0) {
+                        // Calculate bytes transferred in this interval
+                        const rxDeltaBytes = rxBytes - prevSnapshot.rxBytes;
+                        const txDeltaBytes = txBytes - prevSnapshot.txBytes;
+                        
+                        // Only update if deltas are positive (counter not reset)
+                        if (rxDeltaBytes >= 0 && txDeltaBytes >= 0) {
+                            // Calculate bytes per second
+                            const rxBytesPerSec = rxDeltaBytes / timeDeltaSeconds;
+                            const txBytesPerSec = txDeltaBytes / timeDeltaSeconds;
+                            
+                            // Convert to Mbps (bytes per second * 8 bits/byte / 1,000,000)
+                            rxMbps = (rxBytesPerSec * 8) / 1000000;
+                            txMbps = (txBytesPerSec * 8) / 1000000;
+                        }
+                    }
+                }
+                
+                // Store current snapshot for next calculation
+                setPrevSnapshot({
+                    name: selectedInterface,
+                    rxBytes,
+                    txBytes,
+                    timestamp: currentTime,
+                });
                 
                 setBandwidthData(prev => {
                     const newData = [...prev, {
@@ -78,12 +120,25 @@ export default function MikrotikIndex({ resources: initialResources, interfaces:
                         rx: Math.round(rxMbps * 100) / 100,
                         tx: Math.round(txMbps * 100) / 100,
                     }];
-                    // Simpan maksimal 12 data point (1 menit dengan update setiap 5 detik)
+                    // Keep last 12 data points for display
                     return newData.slice(-12);
                 });
             }
         }
     }, [lastUpdate, selectedInterface, interfaces]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // Pause polling
+            } else {
+                // Resume polling
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
     return (
         <AuthenticatedLayout
             header={<h2 className="text-xl font-semibold">Resource Monitor - Mikrolop</h2>}
@@ -95,7 +150,7 @@ export default function MikrotikIndex({ resources: initialResources, interfaces:
 
                 {/* Update Status */}
                 <div className="flex items-center justify-between bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm">
-                    <span className="text-gray-700">🔄 Pembaruan otomatis setiap 5 detik</span>
+                    <span className="text-gray-700">🔄 Pembaruan otomatis setiap 15 detik (SNMP monitoring)</span>
                     <span className="text-gray-600">
                         {isLoading ? '⏳ Mengambil data...' : `✓ Terakhir update: ${lastUpdate.toLocaleTimeString('id-ID')}`}
                     </span>

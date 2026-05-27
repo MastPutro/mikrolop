@@ -8,6 +8,7 @@ use App\Http\Controllers\CustomerStatusSyncController;
 use App\Http\Controllers\MikrotikController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\KeuanganController;
+use App\Http\Controllers\TicketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -52,12 +53,17 @@ Route::middleware(['api'])->group(function () {
     Route::get('/user-by-ip/{ipAddress}', [ManajemenUserController::class, 'getByIp']);
     Route::post('/user/bulk-update-status', [ManajemenUserController::class, 'bulkUpdateStatus']);
     Route::post('/user/execute-script/{name}/{ipAddress}/{packageId}', [ManajemenUserController::class, 'handleExecuteScript']);
+    Route::post('/user/web-client/{name}', [ManajemenUserController::class, 'postToWebClient']);
+    Route::get('/customers/{name}/status/inactive', [ManajemenUserController::class, 'setStatusInactive']);
+    Route::get('/customers/{name}/status/active', [ManajemenUserController::class, 'setStatusActive']);
     
     // Read-only GIS endpoints
     Route::get('/gis/data', [GISMapController::class, 'getData']);
     Route::get('/gis/server/{id}', [GISMapController::class, 'getServer']);
     Route::get('/gis/odp/{id}', [GISMapController::class, 'getODP']);
     Route::get('/gis/customer/{id}', [GISMapController::class, 'getCustomer']);
+    Route::get('/gis/customer/{id}/snmp-stats', [GISMapController::class, 'getCustomerSnmpStats']);
+    Route::get('/gis/customers/snmp-stats', [GISMapController::class, 'getCustomersWithSnmpStats']);
     Route::get('/gis/search', [GISMapController::class, 'search']);
     Route::get('/gis/statistics', [GISMapController::class, 'getStatistics']);
 
@@ -65,15 +71,15 @@ Route::middleware(['api'])->group(function () {
     Route::get('/mikrotik/resources', [MikrotikController::class, 'getResourcesApi']);
 
     // Customer Status Sync Routes
-    Route::prefix('/customer-sync')->group(function () {
-        Route::get('/status', [CustomerStatusSyncController::class, 'getSyncStatus']);
-        Route::post('/sync', [CustomerStatusSyncController::class, 'syncStatus']);
-        Route::post('/sync-detailed', [CustomerStatusSyncController::class, 'syncStatusWithDetails']);
-        Route::get('/ppp-users', [CustomerStatusSyncController::class, 'getPPPUsers']);
-        Route::get('/ppp-active', [CustomerStatusSyncController::class, 'getActivePPP']);
-        Route::get('/ppp-secrets', [CustomerStatusSyncController::class, 'getPPPSecrets']);
-        Route::get('/health', [CustomerStatusSyncController::class, 'healthCheck']);
-    });
+    // Route::prefix('/customer-sync')->group(function () {
+    //     Route::get('/status', [CustomerStatusSyncController::class, 'getSyncStatus']);
+    //     Route::post('/sync', [CustomerStatusSyncController::class, 'syncStatus']);
+    //     Route::post('/sync-detailed', [CustomerStatusSyncController::class, 'syncStatusWithDetails']);
+    //     Route::get('/ppp-users', [CustomerStatusSyncController::class, 'getPPPUsers']);
+    //     Route::get('/ppp-active', [CustomerStatusSyncController::class, 'getActivePPP']);
+    //     Route::get('/ppp-secrets', [CustomerStatusSyncController::class, 'getPPPSecrets']);
+    //     Route::get('/health', [CustomerStatusSyncController::class, 'healthCheck']);
+    // });
 
     // Server info endpoint
     Route::get('/server-info', [ServerController::class, 'show']);
@@ -91,7 +97,36 @@ Route::middleware(['api'])->group(function () {
         Route::post('/remove-schedule/{customerId}', [KeuanganController::class, 'removeSchedule']);
     });
 
-});
+    // Ticket/Help Desk Routes
+    Route::prefix('/tickets')->group(function () {
+        // Admin: Get all tickets with filters
+        Route::get('/', [TicketController::class, 'index']);
+        
+        // Customer: Get their own tickets
+        Route::get('/my-tickets', [TicketController::class, 'getCustomerTickets']);
+        
+        // Create new ticket
+        Route::post('/', [TicketController::class, 'store']);
+        
+        // Get ticket details
+        Route::get('/{ticket}', [TicketController::class, 'show']);
+        
+        // Update ticket
+        Route::put('/{ticket}', [TicketController::class, 'update']);
+        Route::patch('/{ticket}', [TicketController::class, 'update']);
+        
+        // Delete ticket
+        Route::delete('/{ticket}', [TicketController::class, 'destroy']);
+        
+        // Ticket replies
+        Route::post('/{ticket}/replies', [TicketController::class, 'addReply']);
+        Route::get('/{ticket}/replies', [TicketController::class, 'getReplies']);
+        Route::delete('/{ticket}/replies/{reply}', [TicketController::class, 'deleteReply']);
+        
+        // Statistics
+        Route::get('/stats/summary', [TicketController::class, 'getStatistics']);
+    });
+
 
 // Public webhook endpoint - must be registered in Midtrans dashboard
 // POST: https://yourdomain.com/api/keuangan/payment-notification
@@ -101,3 +136,4 @@ Route::post('/keuangan/payment-notification', [KeuanganController::class, 'handl
 Route::get('/keuangan/public-invoice/{invoiceId}', [KeuanganController::class, 'getPublicInvoice']);
 Route::post('/keuangan/public-payment-token/{invoiceId}', [KeuanganController::class, 'createPublicPaymentToken']);
 Route::get('/keuangan/public-payment-link/{invoiceId}', [KeuanganController::class, 'generatePublicPaymentLink']);
+});

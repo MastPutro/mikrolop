@@ -24,10 +24,17 @@ interface ODP {
     lng: number;
     server_id?: number;
     serverId?: number;
+    parent_id?: number;
+    parentId?: number;
     status: 'online' | 'offline';
     ports: number;
     used_ports?: number;
     usedPorts?: number;
+    depth?: number;
+    is_leaf?: boolean;
+    root_server?: Server;
+    parent_odp?: ODP;
+    child_odps?: ODP[];
     server?: Server;
 }
 
@@ -83,6 +90,8 @@ export default function CustomerGISMap(props: Props) {
     const [filter, setFilter] = useState<'all' | 'server' | 'odp' | 'customer'>('all');
     const [showTopology, setShowTopology] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [snmpStats, setSnmpStats] = useState<any>(null);
+    const [snmpLoading, setSnmpLoading] = useState(false);
 
     // Fetch real-time data from API
     const fetchData = async () => {
@@ -107,6 +116,47 @@ export default function CustomerGISMap(props: Props) {
         }
     };
 
+    /**
+     * Fetch SNMP statistics for selected customer on-demand
+     * This includes TX/RX rates and bytes from MikroTik
+     */
+    const fetchCustomerSnmpStats = async (customerId: number) => {
+        setSnmpLoading(true);
+        setSnmpStats(null);
+        
+        try {
+            const response = await axios.get(`/api/gis/customer/${customerId}/snmp-stats`);
+            const { snmp_stats, debug } = response.data;
+            
+            setSnmpStats({
+                ...snmp_stats,
+                debug: debug // Store debug info if available
+            });
+            
+            // Log for debugging
+            console.log('SNMP Stats fetched:', snmp_stats);
+            if (debug) {
+                console.log('Debug Log:', debug);
+            }
+        } catch (error: any) {
+            console.error('Error fetching SNMP stats:', error);
+            
+            // Extract error message from response or use default
+            const errorMessage = error.response?.data?.message || 
+                                error.response?.data?.error ||
+                                error.message || 
+                                'Failed to fetch SNMP data';
+            
+            setSnmpStats({
+                error: true,
+                message: errorMessage,
+                details: error.response?.data
+            });
+        } finally {
+            setSnmpLoading(false);
+        }
+    };
+
     // Load data on mount
     useEffect(() => {
         fetchData();
@@ -120,6 +170,16 @@ export default function CustomerGISMap(props: Props) {
 
         return () => clearInterval(interval);
     }, []);
+
+    // Fetch SNMP stats when customer is selected
+    useEffect(() => {
+        if (selectedNode?.type === 'customer' && selectedNode?.data?.id) {
+            fetchCustomerSnmpStats(selectedNode.data.id);
+        } else {
+            // Reset SNMP stats if non-customer node is selected
+            setSnmpStats(null);
+        }
+    }, [selectedNode?.data?.id, selectedNode?.type]);
 
     useEffect(() => {
         if (!mapRef.current) {
@@ -204,10 +264,11 @@ export default function CustomerGISMap(props: Props) {
         });
         // Draw topology lines
         if (showTopology) {
-            // Server to ODP lines
+            // Server to Root ODP lines (ODPs with server_id)
             odps.forEach((odp: any) => {
                 const server = servers.find(s => s.id === (odp.serverId || odp.server_id));
-                if (server && (filter === 'all' || filter === 'server' || filter === 'odp')) {
+                // Only draw Server→ODP for root ODPs (those with server_id)
+                if (server && !odp.parent_id && !odp.parentId && (filter === 'all' || filter === 'server' || filter === 'odp')) {
                     L.polyline(
                         [[server.lat, server.lng], [odp.lat, odp.lng]],
                         { 
@@ -217,6 +278,25 @@ export default function CustomerGISMap(props: Props) {
                             dashArray: '5, 5'
                         }
                     ).addTo(map);
+                }
+            });
+
+            // Child ODP to Parent ODP lines (hierarchical ODP connections)
+            odps.forEach((odp: any) => {
+                const parentId = odp.parentId || odp.parent_id;
+                if (parentId) {
+                    const parentOdp = odps.find(o => o.id === parentId);
+                    if (parentOdp && (filter === 'all' || filter === 'odp')) {
+                        L.polyline(
+                            [[parentOdp.lat, parentOdp.lng], [odp.lat, odp.lng]],
+                            { 
+                                color: '#3b82f6', 
+                                weight: 1.5, 
+                                opacity: 0.5,
+                                dashArray: '5, 5'
+                            }
+                        ).addTo(map);
+                    }
                 }
             });
 
@@ -524,12 +604,33 @@ export default function CustomerGISMap(props: Props) {
                                                 </span>
                                             </span>
                                         </div>
+                                        
+                                        {/* Hierarchy Information */}
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
-                                            <div className="text-sm text-zinc-400 mb-1">Connected to</div>
+                                            <div className="text-sm text-zinc-400 mb-1">Hierarchy Level</div>
                                             <div className="text-base font-semibold text-white">
-                                                {servers.find(s => s.id === (selectedNode.data.serverId || selectedNode.data.server_id))?.name}
+                                                Depth: {selectedNode.data.depth || 0}
                                             </div>
                                         </div>
+
+                                        {/* Connected To (Server or Parent ODP) */}
+                                        <div className="p-3 bg-zinc-800/50 rounded-lg">
+                                            <div className="text-sm text-zinc-400 mb-1">Connected to</div>
+                                            {selectedNode.data.parent_id || selectedNode.data.parentId ? (
+                                                <div>
+                                                    <div className="text-xs text-zinc-500 mb-1">Parent ODP:</div>
+                                                    <div className="text-base font-semibold text-blue-300">
+                                                        {odps.find(o => o.id === (selectedNode.data.parentId || selectedNode.data.parent_id))?.name}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-base font-semibold text-white">
+                                                    {servers.find(s => s.id === (selectedNode.data.serverId || selectedNode.data.server_id))?.name}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Port Usage */}
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
                                             <div className="text-sm text-zinc-400 mb-2">Port Usage</div>
                                             <div className="flex items-center gap-3">
@@ -547,12 +648,28 @@ export default function CustomerGISMap(props: Props) {
                                                 {selectedNode.data.usedPorts || selectedNode.data.used_ports} / {selectedNode.data.ports} ports used
                                             </div>
                                         </div>
+
+                                        {/* Connected Customers */}
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
                                             <div className="text-sm text-zinc-400 mb-2">Connected Customers</div>
                                             <div className="text-2xl font-bold text-white">
                                                 {customers.filter(c => (c.odpId || c.odp_id) === selectedNode.data.id).length}
                                             </div>
                                         </div>
+
+                                        {/* Child ODPs List (if any) */}
+                                        {selectedNode.data.child_odps && selectedNode.data.child_odps.length > 0 && (
+                                            <div className="p-3 bg-zinc-800/50 rounded-lg">
+                                                <div className="text-sm text-zinc-400 mb-2">Child ODPs ({selectedNode.data.child_odps.length})</div>
+                                                <div className="space-y-1">
+                                                    {selectedNode.data.child_odps.map((child: any) => (
+                                                        <div key={child.id} className="text-sm text-blue-300">
+                                                            • {child.name}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -571,22 +688,184 @@ export default function CustomerGISMap(props: Props) {
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="p-3 bg-zinc-800/50 rounded-lg">
                                                 <div className="text-xs text-zinc-400 mb-1">Package</div>
-                                                <div className="text-sm font-semibold text-white">{selectedNode.data.package}</div>
+                                                <div className="text-sm font-semibold text-white">
+                                                    {selectedNode.data.package?.name || 'N/A'}
+                                                </div>
                                             </div>
                                             <div className="p-3 bg-zinc-800/50 rounded-lg">
-                                                <div className="text-xs text-zinc-400 mb-1">Speed</div>
-                                                <div className="text-sm font-semibold text-white">{selectedNode.data.speed}</div>
+                                                <div className="text-xs text-zinc-400 mb-1">Speed (TX/RX)</div>
+                                                <div className="text-sm font-semibold text-white">
+                                                    {selectedNode.data.package?.speed_tx ? (
+                                                        <>
+                                                            {selectedNode.data.package.speed_tx}Mbps / {selectedNode.data.package.speed_rx}Mbps
+                                                        </>
+                                                    ) : (
+                                                        'N/A'
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
+                                        
+                                        {/* Connection Path - Full Hierarchy */}
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
-                                            <div className="text-sm text-zinc-400 mb-1">Connected to ODP</div>
-                                            <div className="text-base font-semibold text-white">
-                                                {odps.find(o => o.id === (selectedNode.data.odpId || selectedNode.data.odp_id))?.name}
+                                            <div className="text-sm text-zinc-400 mb-3">Connection Path</div>
+                                            <div className="space-y-2">
+                                                {/* Show full ODP hierarchy */}
+                                                {(() => {
+                                                    const odpId = selectedNode.data.odpId || selectedNode.data.odp_id;
+                                                    const customerOdp = odps.find(o => o.id === odpId);
+                                                    
+                                                    // Build path from root to customer ODP
+                                                    const path: any[] = [];
+                                                    if (customerOdp) {
+                                                        let current: ODP | undefined = customerOdp;
+                                                        while (current) {
+                                                            path.unshift(current);
+                                                            if (current.parent_id || current.parentId) {
+                                                                current = odps.find(o => o.id === (current!.parent_id || current!.parentId));
+                                                            } else {
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <>
+                                                            {/* Server at top of hierarchy */}
+                                                            {customerOdp?.root_server && (
+                                                                <div className="text-sm font-semibold text-emerald-400">
+                                                                    🖥️ {customerOdp.root_server.name}
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* All ODPs in the path */}
+                                                            {path.map((odp, idx) => (
+                                                                <div key={odp.id} className="text-sm">
+                                                                    <div className="text-blue-300">
+                                                                        {'  '.repeat(idx)}├─ {odp.name}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            
+                                                            {/* Customer at the end */}
+                                                            <div className="text-sm text-green-300">
+                                                                {'  '.repeat(path.length)}└─ {selectedNode.data.name}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
+
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
-                                            <div className="text-sm text-zinc-400 mb-1">Router MAC</div>
-                                            <div className="text-sm font-mono text-zinc-300">{selectedNode.data.routerMac}</div>
+                                            <div className="text-sm text-zinc-400 mb-3">Traffic Statistics (SNMP)</div>
+                                            
+                                            {/* Loading State */}
+                                            {snmpLoading && (
+                                                <div className="flex items-center justify-center py-4">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="animate-spin">
+                                                            <svg className="w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                        </div>
+                                                        <span className="text-xs text-zinc-500">Fetching SNMP data...</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Error State - Detailed */}
+                                            {snmpStats?.error && (
+                                                <div className="space-y-2">
+                                                    <div className="p-3 bg-red-500/20 border border-red-500/30 rounded text-xs text-red-400">
+                                                        <div className="font-semibold mb-1">⚠️ {snmpStats.message || 'Failed to fetch SNMP data'}</div>
+                                                        {snmpStats.details && (
+                                                            <div className="text-red-300/80 mt-1">
+                                                                <details className="cursor-pointer">
+                                                                    <summary className="hover:underline">Details</summary>
+                                                                    <pre className="text-xs bg-red-900/20 p-2 mt-1 rounded overflow-auto max-h-40">
+                                                                        {JSON.stringify(snmpStats.details, null, 2)}
+                                                                    </pre>
+                                                                </details>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {/* Troubleshooting Tips */}
+                                                    <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-600">
+                                                        <div className="font-semibold mb-1">💡 Troubleshooting:</div>
+                                                        <ul className="list-disc list-inside space-y-1 text-yellow-600/80">
+                                                            <li>Check if SNMP extension is installed: <code className="bg-yellow-900/30 px-1">php -m | grep snmp</code></li>
+                                                            <li>Verify MIKROTIK_HOST in .env file</li>
+                                                            <li>Check customer router_mac is set</li>
+                                                            <li>Ensure SNMP is enabled on MikroTik device</li>
+                                                            <li>Check server logs: <code className="bg-yellow-900/30 px-1">tail -f storage/logs/laravel.log</code></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Data Display */}
+                                            {!snmpLoading && snmpStats && !snmpStats.error && (
+                                                <div className="space-y-3">
+                                                    {/* Interface Info */}
+                                                    <div className="pb-2 border-b border-zinc-700/50">
+                                                        <span className="text-xs text-zinc-500">Interface: <span className="text-zinc-300">{snmpStats.interface_name || 'Unknown'}</span></span>
+                                                        {snmpStats.message && <p className="text-xs text-orange-400 mt-1">{snmpStats.message}</p>}
+                                                    </div>
+                                                    
+                                                    {/* TX Rate/Bytes */}
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs text-zinc-400">TX Bytes</span>
+                                                        <span className="text-sm font-mono text-orange-400">
+                                                            {snmpStats.tx_rate || 'N/A'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* RX Rate/Bytes */}
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs text-zinc-400">RX Bytes</span>
+                                                        <span className="text-sm font-mono text-blue-400">
+                                                            {snmpStats.rx_rate || 'N/A'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* Speed */}
+                                                    <div className="flex justify-between items-center pt-2 border-t border-zinc-700/50">
+                                                        <span className="text-xs text-zinc-400">Link Speed</span>
+                                                        <span className="text-sm font-mono text-cyan-400">
+                                                            {snmpStats.speed || 'Unknown'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* Debug Log Display */}
+                                                    {snmpStats.debug && snmpStats.debug.length > 0 && (
+                                                        <div className="pt-3 border-t border-zinc-700/50 mt-3">
+                                                            <details className="cursor-pointer">
+                                                                <summary className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold">🔍 Debug Info ({snmpStats.debug.length} steps)</summary>
+                                                                <div className="text-xs bg-zinc-900/50 p-2 mt-2 rounded max-h-48 overflow-y-auto space-y-1">
+                                                                    {snmpStats.debug.map((line: string, idx: number) => (
+                                                                        <div key={idx} className="font-mono text-zinc-400">
+                                                                            {line.includes('✓') && <span className="text-green-400">{line}</span>}
+                                                                            {line.includes('✗') && <span className="text-red-400">{line}</span>}
+                                                                            {line.includes('⚠️') && <span className="text-yellow-400">{line}</span>}
+                                                                            {!line.includes('✓') && !line.includes('✗') && !line.includes('⚠️') && <span>{line}</span>}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </details>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Empty State */}
+                                            {!snmpLoading && !snmpStats && (
+                                                <div className="text-xs text-zinc-500 italic">
+                                                    No SNMP data available
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="p-3 bg-zinc-800/50 rounded-lg">
                                             <div className="text-sm text-zinc-400 mb-1">Location</div>

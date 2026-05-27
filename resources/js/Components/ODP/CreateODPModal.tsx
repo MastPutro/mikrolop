@@ -6,22 +6,28 @@ interface Server {
     id: number;
     name: string;
 }
+interface ODP {
+    id: number;
+    name: string;
+}
 
 interface CreateODPModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
     servers: Server[];
+    odps: ODP[];
 }
 
-export default function CreateODPModal({ isOpen, onClose, onSuccess, servers }: CreateODPModalProps) {
+export default function CreateODPModal({ isOpen, onClose, onSuccess, servers, odps }: CreateODPModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
-        lat: -6.2088,
-        lng: 106.8456,
+        lat: -7.47733500,
+        lng: 112.56159480,
         server_id: '',
+        parent_id: '',
         status: 'online',
         ports: '16',
         used_ports: '0',
@@ -48,12 +54,21 @@ export default function CreateODPModal({ isOpen, onClose, onSuccess, servers }: 
         setError(null);
         setLoading(true);
 
+        // Validation: Only server_id or parent_id should be set, not both and not neither
+        if ((formData.server_id === '' && formData.parent_id === '') ||
+            (formData.server_id !== '' && formData.parent_id !== '')) {
+            setError('ODP harus terhubung ke Server ATAU Parent ODP, pilih salah satu saja');
+            setLoading(false);
+            return;
+        }
+
         try {
             await axios.post('/api/odp', {
                 ...formData,
                 lat: formData.lat,
                 lng: formData.lng,
-                server_id: parseInt(formData.server_id),
+                server_id: formData.server_id !== '' ? parseInt(formData.server_id) : null,
+                parent_id: formData.parent_id !== '' ? parseInt(formData.parent_id) : null,
                 ports: parseInt(formData.ports),
                 used_ports: parseInt(formData.used_ports),
             });
@@ -61,9 +76,10 @@ export default function CreateODPModal({ isOpen, onClose, onSuccess, servers }: 
             // Reset form
             setFormData({
                 name: '',
-                lat: -6.2088,
-                lng: 106.8456,
+                lat: -7.47733500,
+                lng: 112.56159480,
                 server_id: '',
+                parent_id: '',
                 status: 'online',
                 ports: '16',
                 used_ports: '0',
@@ -115,24 +131,91 @@ export default function CreateODPModal({ isOpen, onClose, onSuccess, servers }: 
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Server *
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Tipe ODP * (Pilih salah satu)
                         </label>
-                        <select
-                            name="server_id"
-                            value={formData.server_id}
-                            onChange={handleChange}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">Pilih Server</option>
-                            {servers.map((server) => (
-                                <option key={server.id} value={server.id}>
-                                    {server.name}
-                                </option>
-                            ))}
-                        </select>
+                        <p className="text-xs text-gray-500 mb-3">
+                            <strong>Root ODP:</strong> Terhubung langsung ke Server | <strong>Child ODP:</strong> Terhubung ke ODP parent lain (max 5 level)
+                        </p>
+
+                        {/* Root ODP Option */}
+                        <div className="border border-gray-300 rounded-lg p-4">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="parent_type"
+                                    value="server"
+                                    checked={formData.server_id !== '' && formData.parent_id === ''}
+                                    onChange={() => {
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            server_id: servers.length > 0 ? servers[0].id.toString() : '',
+                                            parent_id: '',
+                                        }));
+                                    }}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <div className="font-medium text-gray-700">Root ODP (Terhubung ke Server)</div>
+                                    <div className="text-xs text-gray-600 mt-1">Pilih Server yang akan menjadi parent ODP ini</div>
+                                    {formData.server_id !== '' && formData.parent_id === '' && (
+                                        <select
+                                            name="server_id"
+                                            value={formData.server_id}
+                                            onChange={handleChange}
+                                            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">-- Pilih Server --</option>
+                                            {servers.map((server) => (
+                                                <option key={server.id} value={server.id}>
+                                                    {server.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            </label>
+                        </div>
+
+                        {/* Child ODP Option */}
+                        <div className="border border-gray-300 rounded-lg p-4">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="parent_type"
+                                    value="odp"
+                                    checked={formData.parent_id !== '' && formData.server_id === ''}
+                                    onChange={() => {
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            server_id: '',
+                                            parent_id: odps.length > 0 ? odps[0].id.toString() : '',
+                                        }));
+                                    }}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <div className="font-medium text-gray-700">Child ODP (Terhubung ke ODP Parent)</div>
+                                    <div className="text-xs text-gray-600 mt-1">Pilih ODP parent yang akan menjadi parent ODP ini</div>
+                                    {formData.parent_id !== '' && formData.server_id === '' && (
+                                        <select
+                                            name="parent_id"
+                                            value={formData.parent_id}
+                                            onChange={handleChange}
+                                            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">-- Pilih ODP Parent --</option>
+                                            {odps.map((odp) => (
+                                                <option key={odp.id} value={odp.id}>
+                                                    {odp.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <div>

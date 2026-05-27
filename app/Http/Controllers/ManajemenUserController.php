@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use RouterOS\Config;
 use RouterOS\Client;
 use RouterOS\Query;
+use Illuminate\Support\Facades\Http;
 
 class ManajemenUserController extends Controller
 {
@@ -71,14 +72,19 @@ class ManajemenUserController extends Controller
             'status' => 'required|in:active,inactive,suspended',
             'phone_number' => 'nullable|string|max:20',
             'ip_address' => 'required|unique:customers|ipv4',
+            'router_mac' => 'nullable|string|max:255',
+            'interface_name' => 'nullable|string|max:255',
         ]);
 
         $customer = Customer::create($validated);
         $customer->load('odp', 'package');
+        $webClientResponse = $this->postToWebClient($customer->name);
 
         return response()->json([
             'message' => 'Customer created successfully',
             'data' => $customer,
+            'web_client_response' => $webClientResponse,
+
         ], 201);
     }
 
@@ -114,7 +120,49 @@ class ManajemenUserController extends Controller
         return response()->json([
             'message' => 'Customer updated successfully',
             'data' => $customer,
+            'server_response' => $this->updateStatus($customer),
         ]);
+    }
+
+    /** 
+     * Update customer status (active/inactive)
+     * If status is set to inactive, also execute script to isolate the customer in Mikrotik
+     * If status is set to active, also execute script to un-isolate the customer in
+     */
+    public function updateStatus(Customer $customer)
+    {
+        $config = new Config([
+            'host' => env('MIKROTIK_HOST'),
+            'user' => env('MIKROTIK_USER'),
+            'pass' => env('MIKROTIK_PASS'),
+            'port' => (int) env('MIKROTIK_PORT'),
+        ]);
+
+        $client = new Client($config);
+
+        if ($customer->status === 'inactive') {
+            // Execute script to un-isolate the customer in Mikrotik
+            $query = (new Query ('/ip/firewall/address-list/add'))
+                ->equal('list', 'ISOLIR-LIST')
+                ->equal('address', $customer->ip_address);
+            $client->query($query)->read();
+            return response()->json([
+                'message' => 'Customer status updated to inactive and isolated in Mikrotik',
+            ]);
+        } elseif ($customer->status === 'suspended') {
+            // Execute script to isolate the customer in Mikrotik
+            $query = (new Query ('/ip/firewall/address-list/remove'))
+                ->equal('list', 'ISOLIR-LIST')
+                ->equal('address', $customer->ip_address);
+            $client->query($query)->read();
+            return response()->json([
+                'message' => 'Customer status updated to suspended and un-isolated in Mikrotik',
+            ]);
+        } else {
+            return response()->json([
+                'message' => 'Customer status updated to active',
+            ]);
+        }
     }
 
     /**
@@ -124,10 +172,61 @@ class ManajemenUserController extends Controller
     {
         $customerName = $customer->name;
         $customer->delete();
+        $webClientResponse = $this->deleteFromWebClient($customerName);
+
 
         return response()->json([
             'message' => "Customer '{$customerName}' deleted successfully",
+            'server_response' => $this->deleteFromMikrotik($customer->name, $customer->ip_address),
+            'web_client_response' => $webClientResponse,
         ]);
+    }
+
+    /**
+     * Delete a customer PPP secret and queue in Mikrotik
+     */
+    public function deleteFromMikrotik($name, $ipAddress)
+    {
+        $config = new Config([
+            'host' => env('MIKROTIK_HOST'),
+            'user' => env('MIKROTIK_USER'),
+            'pass' => env('MIKROTIK_PASS'),
+            'port' => (int) env('MIKROTIK_PORT'),
+        ]);
+        $client = new Client($config);
+        try {
+            // Remove PPP secret
+            // 1. Search for the item to get its .id
+            $query = (new Query('/ppp/secret/print'))
+                ->where('name', $name);
+            $user = $client->query($query)->read();
+            // 2. If the user exists, remove it using the .id
+            if (isset($user[0]['.id'])) {
+                $userId = $user[0]['.id'];
+                $removeQuery = (new Query('/ppp/secret/remove'))
+                    ->equal('.id', $userId);
+                $response = $client->query($removeQuery)->read();
+                // A successful removal typically returns an empty array []
+            }
+            // Remove Queue
+            $queryQueue = (new Query('/queue/simple/print'))
+                ->where('name', $name);
+            $queue = $client->query($queryQueue)->read();
+            if (isset($queue[0]['.id'])) {
+                $queueId = $queue[0]['.id'];
+                $removeQueueQuery = (new Query('/queue/simple/remove'))
+                    ->equal('.id', $queueId);
+                $responseQueue = $client->query($removeQueueQuery)->read();
+            }
+
+            return response()->json([
+                'message' => "Customer '{$name}' removed from Mikrotik successfully",
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => "Failed to remove customer '{$name}' from Mikrotik: " . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -172,6 +271,7 @@ class ManajemenUserController extends Controller
      */
     public function handleExecuteScript($name, $ip_address, $package)
     {
+        
         $package = Package::find($package);
         // Implement logic to execute script for the customer
         // This could involve dispatching a job, calling an external API, etc.
@@ -189,7 +289,7 @@ class ManajemenUserController extends Controller
             ->equal('password', '1234') // You should generate a secure password
             ->equal('service', 'pppoe')
             ->equal('remote-address', $ip_address)
-            ->equal('local-address', '192.168.1.1');
+            ->equal('local-address', env('MIKROTIK_PPP_IP'));
             // ->equal('profile', 'default');
         $Secretresponse = $client->query($querySecret)->read();
 
@@ -210,5 +310,113 @@ class ManajemenUserController extends Controller
                 ],
         ];
 
+    }
+
+    /**
+     *  Sync customer status with Mikrotik and update database accordingly
+     */
+    public function setStatusActive($name)
+    {
+        $customer = Customer::where('name', $name)->first();
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer not found',
+            ], 404);
+        }
+
+        // Here you would implement logic to check the customer's status in Mikrotik
+        // and update the database accordingly. This is just a placeholder.
+        $customer->status = 'active'; // or 'inactive' based on Mikrotik status
+        $customer->save();
+
+        return response()->json([
+            'message' => 'Customer status updated successfully via Netwatch',
+            'data' => $customer,
+        ]);
+    }
+    public function setStatusInactive($name)
+    {
+        $customer = Customer::where('name', $name)->first();
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer not found',
+            ], 404);
+        }
+
+        // Here you would implement logic to check the customer's status in Mikrotik
+        // and update the database accordingly. This is just a placeholder.
+        $customer->status = 'suspended'; // or 'active' based on Mikrotik status
+        $customer->save();
+
+        return response()->json([
+            'message' => 'Customer status updated successfully via Netwatch',
+            'data' => $customer,
+        ]);
+    }
+
+
+    /**
+     * Create User to web Client
+     */
+    public function postToWebClient($name)
+    {
+        $header = [
+            'X-API-KEY' => env('WEB_CLIENT_API_KEY'),
+            'Content-Type' => 'application/json',
+        ];
+
+        $postData = [
+            'name' => $name,
+            'email' => $name . '@sentolop.com',
+            'password' => $name . '@1234',
+            'password_confirmation' => $name . '@1234',
+        ];
+
+        try {
+            $response = Http::withHeaders($header)->timeout(10)->post(env('WEB_CLIENT_URL') . '/api/register-user', $postData);
+            if ($response->successful()) {
+                return [
+                    'message' => 'User created successfully in web client',
+                    'data' => $response->json(),
+                ];
+            } else {
+                return [
+                    'message' => 'Failed to create user in web client',
+                    'status' => $response->status(),
+                    'error' => $response->body(),
+                ];
+            }
+        } catch (\Exception $e) {
+            return [
+                'message' => 'Failed to connect to web client',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Delete User from web Client
+     */
+    public function deleteFromWebClient($name)
+    {
+        $header = [
+            'X-API-KEY' => env('WEB_CLIENT_API_KEY'),
+            'Content-Type' => 'application/json',
+        ];
+
+        $response = Http::withHeaders($header)->delete(env('WEB_CLIENT_URL') . '/api/delete-user/' . $name. '@sentolop.com');
+        if ($response->successful()) {
+            return [
+                'message' => 'User deleted successfully from web client',
+                'data' => $response->json(),
+            ];
+        } else {
+            return [
+                'message' => 'Failed to delete user from web client',
+                'error' => $response->body(),
+            ];
+        }
     }
 }

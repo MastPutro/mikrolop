@@ -162,9 +162,9 @@ export default function Authenticated({
                         <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Manajemen Keuangan</span>
                     </Link>
                     <Link
-                        href={route('manajemen.paket.index')}
+                        href={route('history.index')}
                         className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                            route().current('manajemen.paket.index')
+                            route().current('history.index')
                                 ? 'bg-gray-100 text-gray-900'
                                 : 'text-gray-600 hover:bg-gray-50'
                         }`}
@@ -178,13 +178,10 @@ export default function Authenticated({
                         </svg>
                         <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Riwayat Keuangan</span>
                     </Link>
-                    <h1 className={`text-gray-500 uppercase text-xs font-semibold mb-2 ${!sidebarOpen && 'hidden'}`}>
-                        Tools
-                    </h1>
                     <Link
-                        href={route('inject.script.index')}
+                        href={route('helpdesk.index')}
                         className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                            route().current('inject.script.index')
+                            route().current('helpdesk.index')
                                 ? 'bg-gray-100 text-gray-900'
                                 : 'text-gray-600 hover:bg-gray-50'
                         }`}
@@ -192,11 +189,15 @@ export default function Authenticated({
                         <svg
                             className="w-5 h-5 flex-shrink-0"
                             fill="currentColor"
-                            viewBox="0 0 20 20"
+                            viewBox="0 0 24 24"
+                            width="24" 
+                            height="24"
                         >
-                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                            <path d="M12 2a9 9 0 0 0-9 9v1h2v8H3a1 1 0 0 1-1-1v-8a11 11 0 0 1 22 0v5a3 3 0 0 1-3 3h-5v-2h5a1 1 0 0 0 1-1v-5h-2v-8h2v-1a9 9 0 0 0-9-9z"/>
+                            <path d="M5 12h2v8H5z"/>
+                            <path d="M17 12h2v8h-2z"/>
                         </svg>
-                        <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Inject Script</span>
+                        <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Help Desk</span>
                     </Link>
                     <h1 className={`text-gray-500 uppercase text-xs font-semibold mb-2 ${!sidebarOpen && 'hidden'}`}>
                         Setting

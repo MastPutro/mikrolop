@@ -18,17 +18,30 @@ class MikrotikStatusSyncService
     public function __construct()
     {
         try {
+            $host = env('MIKROTIK_HOST');
+            $user = env('MIKROTIK_USER');
+            $pass = env('MIKROTIK_PASS');
+            
+            // Skip initialization if credentials not configured (for debugging/testing)
+            if (!$host || !$user || !$pass) {
+                Log::warning('MikrotikStatusSyncService: RouterOS credentials not configured. Service disabled.');
+                $this->client = null;
+                $this->config = null;
+                return;
+            }
+
             $this->config = new Config([
-                'host' => env('MIKROTIK_HOST'),
-                'user' => env('MIKROTIK_USER'),
-                'pass' => env('MIKROTIK_PASS'),
+                'host' => $host,
+                'user' => $user,
+                'pass' => $pass,
                 'port' => (int) env('MIKROTIK_PORT', 8728),
             ]);
 
             $this->client = new Client($this->config);
         } catch (Exception $e) {
             Log::error('Mikrotik Connection Error: ' . $e->getMessage());
-            throw $e;
+            $this->client = null;
+            $this->config = null;
         }
     }
 
@@ -40,6 +53,10 @@ class MikrotikStatusSyncService
     public function getActivePPPConnections(): array
     {
         try {
+            if (!$this->client) {
+                throw new Exception('RouterOS client not initialized');
+            }
+
             $query = new Query('/ppp/active/print');
             $response = $this->client->query($query)->read();
             Log::info('Active PPP Connections fetched: ' . count($response));
@@ -58,6 +75,10 @@ class MikrotikStatusSyncService
     public function getPPPSecrets(): array
     {
         try {
+            if (!$this->client) {
+                throw new Exception('RouterOS client not initialized');
+            }
+
             $query = new Query('/ppp/secret/print');
             $response = $this->client->query($query)->read();
             Log::info('PPP Secrets fetched: ' . count($response));
@@ -67,6 +88,27 @@ class MikrotikStatusSyncService
             return [];
         }
     }
+
+    /**
+     * Get isolated IP Address from Mikrotik /ip/firewall/address-list/ where list=ISOLIR-LIST
+     */
+    // public function getIsolatedIPAddresses(): array
+    // {
+    //     try {
+    //         if (!$this->client) {
+    //             throw new Exception('RouterOS client not initialized');
+    //         }
+
+    //         $query = new Query('/ip/firewall/address-list/print');
+    //         $query->equal('list', 'ISOLIR-LIST');
+    //         $response = $this->client->query($query)->read();
+    //         Log::info('Isolated IP Addresses fetched: ' . count($response));
+    //         return $response ?? [];
+    //     } catch (Exception $e) {
+    //         Log::error('Error fetching isolated IP addresses: ' . $e->getMessage());
+    //         return [];
+    //     }
+    // }
 
     /**
      * Get all PPP profiles to identify configured users
