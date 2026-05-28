@@ -56,7 +56,7 @@ export default function OpsiServerIndex(PageProps: { server: ServerData }) {
                                     readOnly
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600 cursor-not-allowed"
                                 />
-                                <label className="block text-sm font-medium text-gray-700 mb-1 mt-4">
+                                {/* <label className="block text-sm font-medium text-gray-700 mb-1 mt-4">
                                     Used
                                 </label>
                                 <input
@@ -64,7 +64,7 @@ export default function OpsiServerIndex(PageProps: { server: ServerData }) {
                                     value={serverData.used + '/' + serverData.capacity}
                                     readOnly
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 text-gray-600 cursor-not-allowed"
-                                />
+                                /> */}
                             </div>
                             <div className="text-gray-600 w-full flex-initial">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">

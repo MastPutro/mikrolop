@@ -219,7 +219,7 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                             </div>
 
                             {/* Filter Server */}
-                            <div>
+                            {/* <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Server</label>
                                 <select
                                     value={filterServer}
@@ -233,7 +233,7 @@ export default function ManajemenIndex(props: { auth: any; errors: any; odps: OD
                                         </option>
                                     ))}
                                 </select>
-                            </div>
+                            </div> */}
 
                             {/* Reset Button */}
                             <div className="flex items-end">
