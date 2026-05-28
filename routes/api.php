@@ -69,6 +69,8 @@ Route::middleware(['api'])->group(function () {
 
     // Mikrotik API endpoint
     Route::get('/mikrotik/resources', [MikrotikController::class, 'getResourcesApi']);
+    Route::get('/mikrotik/bandwidth', [MikrotikController::class, 'getInterfaceBandwidth']);
+    Route::get('/mikrotik/bandwidth-history', [MikrotikController::class, 'getInterfaceBandwidthHistory']);
 
     // Customer Status Sync Routes
     // Route::prefix('/customer-sync')->group(function () {
@@ -83,6 +85,7 @@ Route::middleware(['api'])->group(function () {
 
     // Server info endpoint
     Route::get('/server-info', [ServerController::class, 'show']);
+    Route::get('/server-info/{status}', [ServerController::class, 'updateStatus']);
 
     // Keuangan (Billing) Routes
     Route::prefix('/keuangan')->group(function () {

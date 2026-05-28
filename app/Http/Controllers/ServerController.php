@@ -22,4 +22,16 @@ class ServerController extends Controller
 
         return response()->json($server);
     }
+
+    /**
+     * Update server Status (e.g., online/offline) - This can be called by a scheduled task or monitoring system
+     * request send by Netwatch to API endpoint to update server status in database
+     */
+    public function updateStatus($request){
+        $server = Server::first(); // Assuming you have only one server record
+        $server->status = ($request);
+        $server->save();
+
+        return response()->json(['message' => 'Server status updated successfully']);
+    }
 }

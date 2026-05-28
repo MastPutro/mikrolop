@@ -405,6 +405,79 @@ class SNMPService
     }
 
     /**
+     * Get interface TX/RX rate by polling
+     * Polls the interface twice with a delay and calculates the rate
+     * 
+     * @param string $interfaceName Interface name
+     * @param int $delayMs Delay between polls in milliseconds (default: 1000ms = 1 second)
+     * @return array
+     */
+    public function getInterfaceRate(string $interfaceName, int $delayMs = 1000): array
+    {
+        try {
+            // First poll
+            $stats1 = $this->getInterfaceStats($interfaceName);
+            
+            // Wait for the specified delay
+            usleep($delayMs * 1000);
+            
+            // Second poll
+            $stats2 = $this->getInterfaceStats($interfaceName);
+            
+            // Calculate deltas
+            $rx_bytes_delta = $stats2['rx_bytes'] - $stats1['rx_bytes'];
+            $tx_bytes_delta = $stats2['tx_bytes'] - $stats1['tx_bytes'];
+            
+            // Calculate rate: bytes per second
+            $delay_seconds = $delayMs / 1000;
+            $rx_bytes_per_sec = $rx_bytes_delta / $delay_seconds;
+            $tx_bytes_per_sec = $tx_bytes_delta / $delay_seconds;
+            
+            // Convert to bits per second (multiply by 8)
+            $rx_bps = $rx_bytes_per_sec * 8;
+            $tx_bps = $tx_bytes_per_sec * 8;
+            
+            return [
+                'name' => $interfaceName,
+                'rx_bps' => max(0, (int)$rx_bps),  // Ensure non-negative
+                'tx_bps' => max(0, (int)$tx_bps),  // Ensure non-negative
+                'rx_bytes' => $stats2['rx_bytes'],
+                'tx_bytes' => $stats2['tx_bytes'],
+                'rx_errors' => $stats2['rx_errors'] ?? 0,
+                'tx_errors' => $stats2['tx_errors'] ?? 0,
+                'timestamp' => now()->toIso8601String(),
+            ];
+        } catch (Exception $e) {
+            Log::error("Error getting interface rate for $interfaceName: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Format bits per second to human-readable format
+     * 
+     * @param float $bps Bits per second
+     * @return string
+     */
+    public function formatRate(float $bps): string
+    {
+        if ($bps < 0) {
+            $bps = 0;
+        }
+        
+        $units = ['bps', 'kbps', 'Mbps', 'Gbps', 'Tbps'];
+        $rate = $bps;
+        $unitIndex = 0;
+
+        while ($rate >= 1000 && $unitIndex < count($units) - 1) {
+            $rate /= 1000;
+            $unitIndex++;
+        }
+
+        return sprintf('%.2f %s', $rate, $units[$unitIndex]);
+    }
+
+    /**
      * Parse SNMP response value
      * Removes OID prefix and quotes if present
      * 

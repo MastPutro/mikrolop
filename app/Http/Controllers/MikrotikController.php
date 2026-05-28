@@ -133,6 +133,127 @@ class MikrotikController extends Controller
     }
 
     /**
+     * Get bandwidth stats for specific interfaces
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getInterfaceBandwidth(Request $request)
+    {
+        try {
+            if (!$this->snmpService) {
+                throw new \Exception('SNMP Service not initialized');
+            }
+
+            // Get interface name from request, default to ether1 and ether2
+            $interfaces = $request->input('interfaces', ['ether1', 'ether2']);
+            
+            // If string provided, convert to array
+            if (is_string($interfaces)) {
+                $interfaces = [$interfaces];
+            }
+
+            $bandwidthData = [];
+
+            foreach ($interfaces as $interfaceName) {
+                try {
+                    // Get rate data (RX/TX rate in bps, not bytes)
+                    $rate = $this->snmpService->getInterfaceRate($interfaceName);
+                    
+                    $bandwidthData[$interfaceName] = [
+                        'name' => $rate['name'],
+                        'rx_bps' => $rate['rx_bps'],
+                        'tx_bps' => $rate['tx_bps'],
+                        'rx_kbps' => round($rate['rx_bps'] / 1000, 2),
+                        'tx_kbps' => round($rate['tx_bps'] / 1000, 2),
+                        'rx_mbps' => round($rate['rx_bps'] / 1000000, 2),
+                        'tx_mbps' => round($rate['tx_bps'] / 1000000, 2),
+                        'rx_formatted' => $this->snmpService->formatRate($rate['rx_bps']),
+                        'tx_formatted' => $this->snmpService->formatRate($rate['tx_bps']),
+                        'rx_bytes' => $rate['rx_bytes'],
+                        'tx_bytes' => $rate['tx_bytes'],
+                        'rx_errors' => $rate['rx_errors'] ?? 0,
+                        'tx_errors' => $rate['tx_errors'] ?? 0,
+                        'timestamp' => $rate['timestamp'],
+                    ];
+                } catch (\Exception $e) {
+                    Log::warning("Error getting rate for interface $interfaceName: " . $e->getMessage());
+                    $bandwidthData[$interfaceName] = [
+                        'name' => $interfaceName,
+                        'error' => $e->getMessage(),
+                        'rx_bps' => 0,
+                        'tx_bps' => 0,
+                        'rx_kbps' => 0,
+                        'tx_kbps' => 0,
+                        'rx_mbps' => 0,
+                        'tx_mbps' => 0,
+                        'rx_formatted' => '0 bps',
+                        'tx_formatted' => '0 bps',
+                        'timestamp' => now()->toIso8601String(),
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $bandwidthData,
+                'timestamp' => now()->toIso8601String(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching interface bandwidth: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal mengambil data bandwidth: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get real-time bandwidth data for monitoring (with multiple samples)
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getInterfaceBandwidthHistory(Request $request)
+    {
+        try {
+            if (!$this->snmpService) {
+                throw new \Exception('SNMP Service not initialized');
+            }
+
+            $interfaceName = $request->input('interface', 'ether1');
+            $samples = $request->input('samples', 5); // Number of samples to collect
+            
+            // This would typically retrieve historical data
+            // For now, return current data with mock history
+            $currentStats = $this->snmpService->getInterfaceStats($interfaceName);
+            
+            $history = [];
+            for ($i = 0; $i < $samples; $i++) {
+                $history[] = [
+                    'timestamp' => now()->subMinutes($samples - $i)->toIso8601String(),
+                    'rx_bytes' => $currentStats['rx_bytes'] ?? 0,
+                    'tx_bytes' => $currentStats['tx_bytes'] ?? 0,
+                    'rx_bps' => rand(1000000, 10000000), // Mock data in bps
+                    'tx_bps' => rand(500000, 5000000),   // Mock data in bps
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'interface' => $interfaceName,
+                'data' => $history,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching interface bandwidth history: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal mengambil riwayat bandwidth: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get default resources when SNMP unavailable
      */
     private function getDefaultResources(): array

@@ -24,6 +24,9 @@ export default function Authenticated({
                     <div className={`flex items-center ${!sidebarOpen && 'justify-center w-full'}`}>
                         <Link href="/">
                             <ApplicationLogo className="block h-8 w-auto fill-current text-gray-800" />
+                            <h1 className={`text-xl font-bold ms-2 ${!sidebarOpen && 'hidden'}`}>
+                                SENTOLOP
+                            </h1>
                         </Link>
                     </div>
                 </div>
@@ -50,7 +53,7 @@ export default function Authenticated({
                         <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Dashboard</span>
                     </Link>
 
-                    <Link
+                    {/* <Link
                         href={route('mikrotik.index')}
                         className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
                             route().current('mikrotik.index')
@@ -66,7 +69,7 @@ export default function Authenticated({
                             <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" />
                         </svg>
                         <span className={`ms-4 ${!sidebarOpen && 'hidden'}`}>Resource</span>
-                    </Link>
+                    </Link> */}
                     <h1 className={`text-gray-500 uppercase text-xs font-semibold mb-2 ${!sidebarOpen && 'hidden'}`}>
                         Management
                     </h1>

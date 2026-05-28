@@ -218,6 +218,17 @@ class ManajemenUserController extends Controller
                     ->equal('.id', $queueId);
                 $responseQueue = $client->query($removeQueueQuery)->read();
             }
+            // Remove from isolir list if exists
+            $queryIsolir = (new Query('/ip/firewall/address-list/print'))
+                ->where('list', 'ISOLIR-LIST')
+                ->where('address', $ipAddress);
+            $isolirEntry = $client->query($queryIsolir)->read();
+            if (isset($isolirEntry[0]['.id'])) {
+                $isolirId = $isolirEntry[0]['.id'];
+                $removeIsolirQuery = (new Query('/ip/firewall/address-list/remove'))
+                    ->equal('.id', $isolirId);
+                $responseIsolir = $client->query($removeIsolirQuery)->read();
+            }
 
             return response()->json([
                 'message' => "Customer '{$name}' removed from Mikrotik successfully",

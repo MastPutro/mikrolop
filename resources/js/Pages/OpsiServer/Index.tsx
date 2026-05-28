@@ -79,11 +79,7 @@ export default function OpsiServerIndex(PageProps: { server: ServerData }) {
                                 
                             </div>
                         </div>
-                        <div className='p-6 bg-white border-t border-gray-200 text-right'>
-                            <button className="m-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-                                Edit Server
-                            </button>
-                        </div>
+                        
                     </div>
                 </div>
             </div>

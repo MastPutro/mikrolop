@@ -401,11 +401,16 @@ export default function ManajemenKeuanganIndex() {
                                                     <button 
                                                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                                                         onClick={() => {
-                                                            // Could add a detail view modal here
-                                                            toast.info('Detail tidak tersedia, hubungi admin');
+                                                            // Redirect to WhatsApp with pre-filled message (if phone number is available)
+                                                            if (customer.phone_number) {
+                                                                const message = `Halo ${customer.name}, berikut link pembayaran tagihan Anda: https://desktopwsl.sentolop.my.id/payment/${customer.invoice!.id}`;
+                                                                window.open(`https://wa.me/${customer.phone_number}?text=${encodeURIComponent(message)}`, '_blank');
+                                                            } else {
+                                                                toast.error('Nomor telepon tidak tersedia');
+                                                            }
                                                         }}
                                                     >
-                                                        Detail
+                                                        Kirim Whatsapp
                                                     </button>
                                                     {canPayOnline(customer) && (
                                                         <button 
