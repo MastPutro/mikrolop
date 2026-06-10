@@ -1,19 +1,24 @@
 import Authenticated from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
-import { useEffect, useState } from "react";
 
-interface invoice {
+interface Payment {
+    id: number;
+    invoice_number: string;
     customer_name: string;
-    customer_phone: string;
     amount: number;
-    month: string;
-    year: number;
-    status: string;
     payment_method: string;
-    paid_date: string;
+    status: string;
+    created_at: string;
 }
 
-export default function History(props: invoice) {
+// 1. Define the shape of your actual props object
+interface PageProps {
+    payments: Payment[]; 
+    // auth?: any; // (Inertia often passes an auth object too)
+}
+
+// 2. Destructure 'payments' from the props object
+export default function History({ payments }: PageProps) {
     return (
         <Authenticated
             header={
@@ -30,40 +35,36 @@ export default function History(props: invoice) {
                             <h3 className="text-lg font-medium text-gray-900">Daftar Pembayaran</h3>
                         </div>
                         <div className="flex gap-2">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                                <select
-                                    className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={props.status}
-                                    onChange={() => { }}
-                                >
-                                    <option value="all">Semua Status</option>
-                                    <option value="paid">Paid</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="overdue">Overdue</option>
-                                    <option value="canceled">Canceled</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</label>
-                                <select
-                                    className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={props.payment_method}
-                                    onChange={() => { }}
-                                >
-                                    <option value="all">Semua Metode</option>
-                                    <option value="transfer">Transfer</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="pending">Pending</option>
-                                </select>
-                            </div>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        {/* Table Headers */}
+                                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Number</th> */}
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {/* 3. Map over the destructured array instead of 'props' */}
+                                    {payments && payments.map((payment) => (
+                                        <tr key={payment.id}>
+                                            {/* <td className="px-6 py-4 whitespace-nowrap">{payment.invoice_number}</td> */}
+                                            <td className="px-6 py-4 whitespace-nowrap">{payment.customer_name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{payment.amount}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{payment.payment_method}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{payment.status}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{payment.created_at}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-
                     </div>
                 </div>
             </div>
-
-
         </Authenticated>
     );
 }

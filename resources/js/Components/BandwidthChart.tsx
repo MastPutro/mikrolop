@@ -41,7 +41,7 @@ interface BandwidthChartProps {
  * @param height - Tinggi grafik dalam px (default: 300)
  */
 export default function BandwidthChart({
-    interfaces = ['ether1', 'ether2'],
+    interfaces = ['ether6', 'ether8'],
     refreshInterval = 5000,
     chartType = 'bar',
     height = 300,

@@ -146,7 +146,7 @@ class MikrotikController extends Controller
             }
 
             // Get interface name from request, default to ether1 and ether2
-            $interfaces = $request->input('interfaces', ['ether1', 'ether2']);
+            $interfaces = $request->input('interfaces', ['ether6', 'ether8']);
             
             // If string provided, convert to array
             if (is_string($interfaces)) {
@@ -221,7 +221,7 @@ class MikrotikController extends Controller
                 throw new \Exception('SNMP Service not initialized');
             }
 
-            $interfaceName = $request->input('interface', 'ether1');
+            $interfaceName = $request->input('interface', 'ether6');
             $samples = $request->input('samples', 5); // Number of samples to collect
             
             // This would typically retrieve historical data

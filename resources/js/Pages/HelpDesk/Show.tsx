@@ -27,7 +27,7 @@ interface Ticket {
         id: number;
         name: string;
     };
-    assignedTo?: {
+    assigned_to?: {
         id: number;
         name: string;
     };
@@ -292,7 +292,7 @@ export default function TicketShow({ ticketId }: Props) {
 
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Ditugaskan Ke</p>
-                                <p className="text-sm font-semibold text-gray-900">{ticket.assignedTo?.name || 'Belum ditugaskan'}</p>
+                                <p className="text-sm font-semibold text-gray-900">{ticket.assigned_to?.name || 'Belum ditugaskan'}</p>
                             </div>
                         </div>
                     </div>

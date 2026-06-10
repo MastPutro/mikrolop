@@ -403,7 +403,7 @@ export default function ManajemenKeuanganIndex() {
                                                         onClick={() => {
                                                             // Redirect to WhatsApp with pre-filled message (if phone number is available)
                                                             if (customer.phone_number) {
-                                                                const message = `Halo ${customer.name}, berikut link pembayaran tagihan Anda: https://desktopwsl.sentolop.my.id/payment/${customer.invoice!.id}`;
+                                                                const message = `Halo ${customer.name}, berikut link pembayaran tagihan Anda: https://admin.sentolop.biz.id/payment/${customer.invoice!.id}`;
                                                                 window.open(`https://wa.me/${customer.phone_number}?text=${encodeURIComponent(message)}`, '_blank');
                                                             } else {
                                                                 toast.error('Nomor telepon tidak tersedia');

@@ -351,6 +351,21 @@ class KeuanganController extends Controller
                                 \Log::warning('Could not remove isolir: ' . $e->getMessage());
                             }
                         }
+                        try {
+                            $customer = Customer::find($invoice->customer_id);
+                            if ($customer) {
+                                $customer->update([
+                                    'is_isolated' => 'no',
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Could not update customer isolation status: ' . $e->getMessage());
+                        }
+                        try{
+                            $this->markInvoiceAsPaid($invoice, $invoice->payment_method, $invoice->midtrans_transaction_id);
+                        } catch (\Exception $e) {
+                            \Log::warning('Could not mark invoice as paid: ' . $e->getMessage());
+                        }
                     }
                 }
             }
@@ -362,6 +377,24 @@ class KeuanganController extends Controller
             // Return 200 anyway so Midtrans doesn't retry
             return response()->json(['success' => false, 'message' => $e->getMessage()], 200);
         }
+    }
+
+    /**
+     * Store data to Payments table and mark invoice as paid
+     */
+    public function markInvoiceAsPaid(Invoice $invoice, $paymentMethod, $transactionId = null)
+    {
+        // Create payment record
+        Payment::create([
+            'invoice_id' => $invoice->id,
+            'customer_id' => $invoice->customer_id,
+            'amount' => $invoice->amount,
+            'method' => $paymentMethod,
+            'status' => 'success',
+        ]);
+
+        // Mark invoice as paid
+        $invoice->markAsPaid($paymentMethod, $transactionId);
     }
 
     /**
@@ -531,8 +564,14 @@ class KeuanganController extends Controller
                 'port' => (int) env('MIKROTIK_PORT'),
             ]);
             $client = new Client($config);
+            
+            $putIsorlir = '/tool fetch url="https://admin.sentolop.biz.id/api/customers/'.$customerId.'/isisolated/yes" keep-result=no';
+            $createIsolir = '/ip/firewall/address-list/add list=ISOLIR-LIST address=' . $ipAddress;
+            $event = ":do {\n" .
+                     "   " . $putIsorlir . "\n" .
+                     "   " . $createIsolir . "\n" .
+                     "}";
 
-            $event = '/ip/firewall/address-list/add list=ISOLIR-LIST address=' . $ipAddress;
 
             // Convert month number to month name for Mikrotik format
             $monthName = Carbon::createFromDate($dueYear, $dueMonth, 1)->format('M');
@@ -590,6 +629,10 @@ class KeuanganController extends Controller
                 }
             }
 
+            $customer->update([
+                'is_isolated' => 'no',
+            ]);
+
             return response()->json([
                 'message' => 'Isolir berhasil dihapus',
                 'id' => $customerId,
@@ -645,10 +688,20 @@ class KeuanganController extends Controller
      */
     public function history()
     {
-        $invoices = Invoice::all();
+        $payments = Payment::all();
 
         return Inertia::render('ManajemenKeuangan/History', [
-            'invoices' => $invoices
+            'payments' => $payments->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'invoice_number' => $payment->invoice?->invoice_number,
+                    'customer_name' => $payment->customer?->name,
+                    'amount' => $payment->amount,
+                    'payment_method' => $payment->method,
+                    'status' => $payment->status,
+                    'created_at' => $payment->created_at->toDateTimeString(),
+                ];
+            }),
         ]);
     }
 }

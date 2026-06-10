@@ -56,6 +56,7 @@ Route::middleware(['api'])->group(function () {
     Route::post('/user/web-client/{name}', [ManajemenUserController::class, 'postToWebClient']);
     Route::get('/customers/{name}/status/inactive', [ManajemenUserController::class, 'setStatusInactive']);
     Route::get('/customers/{name}/status/active', [ManajemenUserController::class, 'setStatusActive']);
+    Route::get('/customers/{customerId}/isisolated/{isIsolated}', [ManajemenUserController::class, 'updateIsolationStatus']);
     
     // Read-only GIS endpoints
     Route::get('/gis/data', [GISMapController::class, 'getData']);
@@ -99,6 +100,8 @@ Route::middleware(['api'])->group(function () {
         Route::post('/remove-isolir/{customerId}', [KeuanganController::class, 'removeIsolir']);
         Route::post('/remove-schedule/{customerId}', [KeuanganController::class, 'removeSchedule']);
     });
+
+
 
     // Ticket/Help Desk Routes
     Route::prefix('/tickets')->group(function () {

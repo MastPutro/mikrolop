@@ -114,13 +114,40 @@ class ManajemenUserController extends Controller
             'ip_address' => 'sometimes|unique:customers,ip_address,' . $customer->id . '|ipv4',
         ]);
 
+        if (isset($validated['package_id']) && $validated['package_id'] !== $customer->package_id) {
+            $this->updatePackage($customer, $validated['package_id']);
+        }
+        // if (isset($validated['status']) && $validated['status'] !== $customer->status) {
+        //     $customer->status = $validated['status'];
+        //     $this->updateStatus($customer);
+        // }
+
         $customer->update($validated);
         $customer->load('odp', 'package');
 
         return response()->json([
             'message' => 'Customer updated successfully',
             'data' => $customer,
-            'server_response' => $this->updateStatus($customer),
+        ]);
+    }
+
+    public function updateIsolationStatus($customerId, $isIsolated)
+    {
+
+        // 1. Cari data pelanggan berdasarkan ID
+        $customer = Customer::findOrFail($customerId);
+
+        // 2. Pastikan input yang masuk hanya bernilai 'yes' atau 'no'
+        $isIsolatedValue = (strtolower($isIsolated) === 'yes') ? 'yes' : 'no';
+
+        // 3. Lakukan proses UPDATE (bukan INSERT)
+        $customer->update([
+            'is_isolated' => $isIsolatedValue
+        ]);
+
+        return response()->json([
+            'message' => 'Status isolasi berhasil diupdate',
+            'data' => $customer
         ]);
     }
 
@@ -151,10 +178,16 @@ class ManajemenUserController extends Controller
             ]);
         } elseif ($customer->status === 'suspended') {
             // Execute script to isolate the customer in Mikrotik
-            $query = (new Query ('/ip/firewall/address-list/remove'))
-                ->equal('list', 'ISOLIR-LIST')
-                ->equal('address', $customer->ip_address);
-            $client->query($query)->read();
+            $query = (new Query ('/ip/firewall/address-list/print'))
+                ->where('list', 'ISOLIR-LIST')
+                ->where('address', $customer->ip_address);
+            $isolirEntry = $client->query($query)->read();
+            if (isset($isolirEntry[0]['.id'])) {
+                $isolirId = $isolirEntry[0]['.id'];
+                $removeIsolirQuery = (new Query('/ip/firewall/address-list/remove'))
+                    ->equal('.id', $isolirId);
+                $client->query($removeIsolirQuery)->read();
+            }
             return response()->json([
                 'message' => 'Customer status updated to suspended and un-isolated in Mikrotik',
             ]);
@@ -164,6 +197,42 @@ class ManajemenUserController extends Controller
             ]);
         }
     }
+
+    /**
+     * Update Queue in Mikrotik when package is updated
+     */
+    public function updatePackage(Customer $customer, $packageId)
+    {
+        $package = Package::find($packageId);
+        $config = new Config([
+            'host' => env('MIKROTIK_HOST'),
+            'user' => env('MIKROTIK_USER'),
+            'pass' => env('MIKROTIK_PASS'),
+            'port' => (int) env('MIKROTIK_PORT'),
+        ]);
+
+        $client = new Client($config);
+
+        // Update Queue
+        $queryQueue = (new Query('/queue/simple/print'))
+            ->where('name', $customer->name);
+        $queue = $client->query($queryQueue)->read();
+        if (isset($queue[0]['.id'])) {
+            $queueId = $queue[0]['.id'];
+            $updateQueueQuery = (new Query('/queue/simple/set'))
+                ->equal('.id', $queueId)
+                ->equal('max-limit', $package->speed_tx . 'M/' . $package->speed_rx . 'M')
+                ->equal('bucket-size', $package->bucket_size. '/' . $package->bucket_size)
+                ->equal('parent', $package->parent_queue);
+            $responseQueue = $client->query($updateQueueQuery)->read();
+        }
+
+        return response()->json([
+            'message' => "Customer '{$customer->name}' package updated in Mikrotik successfully",
+            'response' => $responseQueue,
+        ]);
+    }
+        
 
     /**
      * Delete a customer
@@ -380,13 +449,13 @@ class ManajemenUserController extends Controller
 
         $postData = [
             'name' => $name,
-            'email' => $name . '@sentolop.com',
+            'email' => strtolower($name) . '@sentolop.com',
             'password' => $name . '@1234',
             'password_confirmation' => $name . '@1234',
         ];
 
         try {
-            $response = Http::withHeaders($header)->timeout(10)->post(env('WEB_CLIENT_URL') . '/api/register-user', $postData);
+            $response = Http::withHeaders($header)->timeout(10)->post(env('WEB_CLIENT_URL') . '/register-user', $postData);
             if ($response->successful()) {
                 return [
                     'message' => 'User created successfully in web client',
@@ -417,7 +486,7 @@ class ManajemenUserController extends Controller
             'Content-Type' => 'application/json',
         ];
 
-        $response = Http::withHeaders($header)->delete(env('WEB_CLIENT_URL') . '/api/delete-user/' . $name. '@sentolop.com');
+        $response = Http::withHeaders($header)->delete(env('WEB_CLIENT_URL') . '/delete-user/' . strtolower($name) . '@sentolop.com');
         if ($response->successful()) {
             return [
                 'message' => 'User deleted successfully from web client',

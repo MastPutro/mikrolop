@@ -153,6 +153,7 @@ class GISMapController extends Controller
             
             $snmpStats = [];
             
+            
             // Strategy 1: Try to find interface by PPP connection name (customer username)
             $debugLog[] = "=== Strategy 1: PPP Connection Lookup ===";
             $debugLog[] = "Looking for PPP connection named: {$customer->name}";

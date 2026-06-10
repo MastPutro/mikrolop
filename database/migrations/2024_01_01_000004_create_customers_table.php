@@ -16,6 +16,7 @@ return new class extends Migration
             $table->decimal('lng', 11, 8);
             $table->foreignId('odp_id')->constrained('o_d_p_s')->onDelete('cascade');
             $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
+            $table->enum('is_isolated', ['yes', 'no'])->default('no');
             $table->enum('used', ['yes', 'no'])->default('yes');
             // $table->foreignId('package_id')->constrained('packages')->onDelete('cascade');
             $table->string('phone_number')->nullable();
@@ -28,6 +29,7 @@ return new class extends Migration
             $table->index('odp_id');
             $table->index('status');
             $table->index('used');
+            $table->index('is_isolated');
             $table->index('ip_address');
         });
     }

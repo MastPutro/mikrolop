@@ -50,9 +50,9 @@ export default function Dashboard() {
             try {
                 // Menggunakan Promise.all agar fetch berjalan paralel & lebih cepat
                 const [billingRes, userRes, ticketRes] = await Promise.all([
-                    axios.get('/api/keuangan/billing-data/'),
-                    axios.get('/api/user-list/'),
-                    axios.get('/api/tickets/')
+                    axios.get('/api/keuangan/billing-data'),
+                    axios.get('/api/user-list'),
+                    axios.get('/api/tickets')
                 ]);
 
                 // Filter 1: Tagihan Pending
@@ -206,10 +206,10 @@ export default function Dashboard() {
                                 <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-green-500 p-6">
                                     <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
                                         <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                        Interface Ether1
+                                        Interface Ether6
                                     </h3>
                                     <BandwidthChart
-                                        interfaces={['ether1']}
+                                        interfaces={['ether6']}
                                         refreshInterval={5000}
                                         chartType="bar"
                                         height={250}
@@ -220,10 +220,10 @@ export default function Dashboard() {
                                 <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-purple-500 p-6">
                                     <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
                                         <span className="inline-block w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
-                                        Interface Ether2
+                                        Interface Ether8
                                     </h3>
                                     <BandwidthChart
-                                        interfaces={['ether2']}
+                                        interfaces={['ether8']}
                                         refreshInterval={5000}
                                         chartType="bar"
                                         height={250}
@@ -235,10 +235,10 @@ export default function Dashboard() {
                             <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg border-l-4 border-indigo-500 p-6">
                                 <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
                                     <span className="inline-block w-3 h-3 bg-indigo-500 rounded-full mr-2"></span>
-                                    Perbandingan Bandwidth (Ether1 vs Ether2)
+                                    Perbandingan Bandwidth (Ether6 vs Ether8)
                                 </h3>
                                 <BandwidthChart
-                                    interfaces={['ether1', 'ether2']}
+                                    interfaces={['ether6', 'ether8']}
                                     refreshInterval={5000}
                                     chartType="line"
                                     height={300}

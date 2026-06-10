@@ -13,6 +13,7 @@ interface Customer {
     odp_id: number;
     package_id: number | null;
     status: 'active' | 'inactive' | 'suspended';
+    is_isolated: 'yes' | 'no';
     phone_number: string | null;
     ip_address: string;
     odp?: {
@@ -396,6 +397,9 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(customer.status)}`}>
                                                     {getStatusLabel(customer.status)}
+                                                </span>
+                                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${customer.is_isolated === 'yes' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                                    {customer.is_isolated === 'yes' ? 'Isolir' : 'Tidak Isolir'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.package?.name || 'N/A'}</td>

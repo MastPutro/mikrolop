@@ -17,6 +17,7 @@ class Customer extends Model
         'odp_id',
         'package_id',
         'status',
+        'is_isolated',
         'package',
         'phone_number',
         'ip_address',

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->enum('status', ['open', 'in_progress', 'pending', 'resolved', 'closed'])->default('open');
             $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
             $table->enum('category', ['billing', 'technical', 'service', 'complaint', 'other'])->default('other');
-            $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('assigned_to')->nullable()->constrained('customers')->nullOnDelete();
             $table->text('resolution_notes')->nullable();
             $table->timestamp('resolved_at')->nullable();
             $table->timestamp('closed_at')->nullable();

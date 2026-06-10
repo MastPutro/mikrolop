@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Package;
-use App\Services\MikrotikScriptService;
+// use App\Services\MikrotikScriptService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -104,8 +104,8 @@ class ManajemenPaketController extends Controller
         // If speed or bucket config changed, regenerate script for all customers
         if (isset($validated['speed_tx']) || isset($validated['speed_rx']) || 
             isset($validated['bucket_size']) || isset($validated['parent_queue'])) {
-            $script = MikrotikScriptService::generateBatchScript($package);
-            MikrotikScriptService::storeScript($package, null, $script);
+            // $script = MikrotikScriptService::generateBatchScript($package);
+            // MikrotikScriptService::storeScript($package, null, $script);
         }
 
         return response()->json([
@@ -152,7 +152,7 @@ class ManajemenPaketController extends Controller
         }
 
         $package = $customer->package;
-        $script = MikrotikScriptService::generateCompleteCustomerScript($customer, $package);
+        // $script = MikrotikScriptService::generateCompleteCustomerScript($customer, $package);
 
         return response()->json([
             'customer' => $customer,
@@ -179,7 +179,7 @@ class ManajemenPaketController extends Controller
         }
 
         $package = $customer->package;
-        $script = MikrotikScriptService::generateRemoveCustomerScript($customer, $package);
+        // $script = MikrotikScriptService::generateRemoveCustomerScript($customer, $package);
 
         return response($script)
             ->header('Content-Type', 'text/plain')
