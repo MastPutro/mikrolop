@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import CreateUserModal from '@/Components/User/CreateUserModal';
 import MapLocationSelector from '@/Components/User/MapLocationSelector';
@@ -52,6 +52,11 @@ interface EditModalState {
     };
 }
 
+type SortConfig = {
+    key: keyof Customer;
+    direction: 'asc' | 'desc';
+} | null;
+
 export default function ManajemenUserIndex(props: { auth: any; customers?: Customer[]; odps?: ODP[]; packages?: Package[] }) {
     const [customers, setCustomers] = useState<Customer[]>(Array.isArray(props.customers) ? props.customers : []);
     const [odps, setODPs] = useState<ODP[]>(Array.isArray(props.odps) ? props.odps : []);
@@ -63,6 +68,11 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
     const [filterODP, setFilterODP] = useState('all');
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    // --- State Pagination & Sorting ---
+    const [currentPage, setCurrentPage] = useState(1);
+    const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+    const itemsPerPage = 10;
 
     const [editModal, setEditModal] = useState<EditModalState>({
         isOpen: false,
@@ -79,8 +89,9 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
         },
     });
 
-    // Fetch customers
+    // Reset halaman ke 1 jika filter/pencarian berubah
     useEffect(() => {
+        setCurrentPage(1);
         fetchCustomers();
     }, [searchQuery, filterStatus, filterODP]);
 
@@ -110,12 +121,10 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
             setSyncing(true);
             const response = await axios.post('/api/customer-sync/sync');
             const result = response.data?.data || {};
-            
-            // Tampilkan ringkasan sync
+
             const message = `Sinkronisasi berhasil!\n\nTotal Customer: ${result.total_customers}\nDi-update: ${result.updated}\nDi-suspend: ${result.suspended}\nAda status aktif: ${result.activated}\nTidak ditemukan: ${result.not_found}`;
             alert(message);
-            
-            // Refresh data customer
+
             await fetchCustomers();
         } catch (error: any) {
             const message = error.response?.data?.message || 'Gagal melakukan sinkronisasi';
@@ -126,8 +135,6 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
         }
     };
 
-
-    // Handle update customer
     const handleUpdateCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editModal.customer) return;
@@ -154,7 +161,6 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
         }
     };
 
-    // Handle delete customer
     const handleDeleteCustomer = async (id: number) => {
         if (!window.confirm('Apakah Anda yakin ingin menghapus customer ini?')) return;
 
@@ -215,32 +221,74 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
 
     const getStatusBadgeColor = (status: string) => {
         switch (status) {
-            case 'active':
-                return 'bg-green-100 text-green-800';
-            case 'inactive':
-                return 'bg-gray-100 text-gray-800';
-            case 'suspended':
-                return 'bg-red-100 text-red-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+            case 'active': return 'bg-green-100 text-green-800';
+            case 'inactive': return 'bg-gray-100 text-gray-800';
+            case 'suspended': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
         }
     };
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'active':
-                return 'Aktif';
-            case 'inactive':
-                return 'Non-Aktif';
-            case 'suspended':
-                return 'Suspended';
-            default:
-                return status;
+            case 'active': return 'Aktif';
+            case 'inactive': return 'Non-Aktif';
+            case 'suspended': return 'Suspended';
+            default: return status;
         }
     };
 
     const handleCreateModalClose = () => {
         setIsCreateModalOpen(false);
+    };
+
+    // --- Fungsi Sort ---
+    const handleSort = (key: keyof Customer) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // --- Pemrosesan Data (Sort & Paginasi) ---
+    const processedData = useMemo(() => {
+        let sortableItems = [...customers];
+
+        // Eksekusi Sorting
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+
+                if (aValue === null || aValue === undefined) aValue = '';
+                if (bValue === null || bValue === undefined) bValue = '';
+
+                // Logika khusus untuk IP Address agar terbaca sebagai angka
+                if (sortConfig.key === 'ip_address') {
+                    const ipA = String(aValue).split('.').map(num => num.padStart(3, '0')).join('');
+                    const ipB = String(bValue).split('.').map(num => num.padStart(3, '0')).join('');
+                    return sortConfig.direction === 'asc' ? ipA.localeCompare(ipB) : ipB.localeCompare(ipA);
+                }
+
+                // Logika string/angka default
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [customers, sortConfig]);
+
+    // Eksekusi Paginasi
+    const totalPages = Math.ceil(processedData.length / itemsPerPage);
+    const paginatedCustomers = processedData.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const SortIcon = ({ columnKey }: { columnKey: keyof Customer }) => {
+        if (sortConfig?.key !== columnKey) return <span className="ml-1 text-gray-300">↕</span>;
+        return <span className="ml-1 text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
     };
 
     return (
@@ -255,7 +303,7 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                 onSuccess={fetchCustomers}
                 odps={odps}
                 packages={packages}
-                />
+            />
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     <div className="mb-6 flex justify-between items-center">
@@ -264,28 +312,6 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                             <p className="text-sm text-gray-600 mt-1">Total: {customers.length} Customer</p>
                         </div>
                         <div className="flex gap-2">
-                            {/* <button
-                                onClick={syncCustomerStatus}
-                                disabled={syncing || loading}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 flex items-center gap-2"
-                            >
-                                {syncing ? (
-                                    <>
-                                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Syncing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        Sync Sekarang
-                                    </>
-                                )}
-                            </button> */}
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
@@ -348,6 +374,7 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                         setSearchQuery('');
                                         setFilterStatus('all');
                                         setFilterODP('all');
+                                        setCurrentPage(1);
                                     }}
                                     className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
                                 >
@@ -363,69 +390,125 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                             <p className="text-gray-600 mt-4">Memuat data customer...</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ODP</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Telpon</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {customers && Array.isArray(customers) && customers.filter(c => c && c.id).map((customer) => (
-                                        <tr key={customer.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.name || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                <a 
-                                                    href={`https://maps.google.com/?q=${customer.lat},${customer.lng}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:text-blue-900 hover:underline"
-                                                >
-                                                    Lihat
-                                                </a>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.odp?.name || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(customer.status)}`}>
-                                                    {getStatusLabel(customer.status)}
-                                                </span>
-                                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${customer.is_isolated === 'yes' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                                                    {customer.is_isolated === 'yes' ? 'Isolir' : 'Tidak Isolir'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.package?.name || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.phone_number || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono text-xs">{customer.ip_address}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 space-x-2">
-                                                <button
-                                                    onClick={() => openEditModal(customer)}
-                                                    className="text-blue-600 hover:text-blue-900 font-medium"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteCustomer(customer.id)}
-                                                    className="text-red-600 hover:text-red-900 font-medium"
-                                                >
-                                                    Hapus
-                                                </button>
-                                            </td>
+                        <div className="bg-white shadow-sm sm:rounded-lg">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th
+                                                onClick={() => handleSort('id')}
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                            >
+                                                ID <SortIcon columnKey="id" />
+                                            </th>
+                                            <th
+                                                onClick={() => handleSort('name')}
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                            >
+                                                Nama <SortIcon columnKey="name" />
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ODP</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Telpon</th>
+                                            <th
+                                                onClick={() => handleSort('ip_address')}
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                            >
+                                                IP Address <SortIcon columnKey="ip_address" />
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {(!customers || customers.length === 0) && (
-                                <div className="px-6 py-12 text-center text-gray-500">
-                                    Tidak ada data customer yang tersedia
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {paginatedCustomers.map((customer) => (
+                                            <tr key={customer.id}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.id}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.name || 'N/A'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <a
+                                                        href={`https://maps.google.com/?q=$${customer.lat},${customer.lng}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:text-blue-900 hover:underline"
+                                                    >
+                                                        Lihat
+                                                    </a>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.odp?.name || 'N/A'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(customer.status)}`}>
+                                                        {getStatusLabel(customer.status)}
+                                                    </span>
+                                                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${customer.is_isolated === 'yes' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                                        {customer.is_isolated === 'yes' ? 'Isolir' : 'Tidak Isolir'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.package?.name || 'N/A'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer.phone_number || 'N/A'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono text-xs">{customer.ip_address}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 space-x-2">
+                                                    <button
+                                                        onClick={() => openEditModal(customer)}
+                                                        className="text-blue-600 hover:text-blue-900 font-medium"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteCustomer(customer.id)}
+                                                        className="text-red-600 hover:text-red-900 font-medium"
+                                                    >
+                                                        Hapus
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {(!paginatedCustomers || paginatedCustomers.length === 0) && (
+                                    <div className="px-6 py-12 text-center text-gray-500">
+                                        Tidak ada data customer yang tersedia
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Komponen Paginasi */}
+                            {totalPages > 1 && (
+                                <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+                                    <div className="text-sm text-gray-700">
+                                        Menampilkan <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> hingga <span className="font-medium">{Math.min(currentPage * itemsPerPage, processedData.length)}</span> dari <span className="font-medium">{processedData.length}</span> hasil
+                                    </div>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                            className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Sebelumnya
+                                        </button>
+                                        <div className="flex space-x-1">
+                                            {[...Array(totalPages)].map((_, i) => (
+                                                <button
+                                                    key={i + 1}
+                                                    onClick={() => setCurrentPage(i + 1)}
+                                                    className={`px-3 py-1 rounded-md ${currentPage === i + 1
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                            disabled={currentPage === totalPages}
+                                            className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Selanjutnya
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -433,10 +516,10 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                 </div>
             </div>
 
-            {/* Edit Modal */}
+            {/* Modal Edit (Tidak diubah, tetap sama) */}
             {editModal.isOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-150 overflow-y-auto">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <h3 className="text-lg font-semibold mb-4">Edit Customer</h3>
                         <form onSubmit={handleUpdateCustomer} className="space-y-4">
                             <input
@@ -497,7 +580,6 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                 })}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                {/* <option value="active">Aktif</option> */}
                                 <option value="inactive">Non-Aktif</option>
                                 <option value="suspended">Suspended</option>
                             </select>
