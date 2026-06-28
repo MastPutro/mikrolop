@@ -12,6 +12,7 @@ use App\Http\Controllers\ManajemenPaketController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\HelpdeskController;
+use App\Http\Controllers\MonitorController;
 
 Route::get('/', function () {
     // return Inertia::render('Welcome', [
@@ -45,6 +46,9 @@ Route::middleware('auth')->group(function () {
 
     // Opsi Server page
     Route::get('/opsi-server', [ServerController::class, 'index'])->name('opsi.server.index');
+
+    // Monitor pages
+    Route::get('/monitor/server', [MonitorController::class, 'index'])->name('monitor.server');
 
     // Helpdesk page
     Route::get('/helpdesk', [HelpdeskController::class, 'index'])->name('helpdesk.index');

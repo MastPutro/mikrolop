@@ -159,8 +159,10 @@ class SNMPService
             $ifAdminStatus = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.7', $this->timeout, $this->retries);
             $ifOperStatus = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.8', $this->timeout, $this->retries);
             $ifInOctets = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.10', $this->timeout, $this->retries);
-            $ifInErrors = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.13', $this->timeout, $this->retries);
+            $ifInDiscards = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.13', $this->timeout, $this->retries) ?: [];
+            $ifInErrors = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.14', $this->timeout, $this->retries);
             $ifOutOctets = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.16', $this->timeout, $this->retries);
+            $ifOutDiscards = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.19', $this->timeout, $this->retries) ?: [];
             $ifOutErrors = @snmp2_real_walk($this->host, $this->community, '1.3.6.1.2.1.2.2.1.20', $this->timeout, $this->retries);
 
             if (!$ifDescriptions || !is_array($ifDescriptions)) {
@@ -193,6 +195,24 @@ class SNMPService
                     }
                 }
                 
+                // Lookup discard values by ifIndex suffix
+                $inDiscardsVal = null;
+                $outDiscardsVal = null;
+                $inErrorsVal = null;
+                $outErrorsVal = null;
+                foreach ($ifInDiscards as $k => $v) {
+                    if (str_ends_with($k, ".$ifIndex")) { $inDiscardsVal = $v; break; }
+                }
+                foreach ($ifOutDiscards as $k => $v) {
+                    if (str_ends_with($k, ".$ifIndex")) { $outDiscardsVal = $v; break; }
+                }
+                foreach ($ifInErrors as $k => $v) {
+                    if (str_ends_with($k, ".$ifIndex")) { $inErrorsVal = $v; break; }
+                }
+                foreach ($ifOutErrors as $k => $v) {
+                    if (str_ends_with($k, ".$ifIndex")) { $outErrorsVal = $v; break; }
+                }
+
                 $interface = [
                     'ifIndex' => (int)$ifIndex,
                     'ifDescr' => $this->parseSnmpValue($description),
@@ -203,9 +223,11 @@ class SNMPService
                     'ifAdminStatus' => isset($ifAdminStatus[$oid]) ? (int)$this->parseSnmpValue($ifAdminStatus[$oid]) : 0,
                     'ifOperStatus' => isset($ifOperStatus[$oid]) ? (int)$this->parseSnmpValue($ifOperStatus[$oid]) : 0,
                     'ifInOctets' => $inOctetsVal ? (int)$this->parseSnmpValue($inOctetsVal) : 0,
-                    'ifInErrors' => isset($ifInErrors[$oid]) ? (int)$this->parseSnmpValue($ifInErrors[$oid]) : 0,
+                    'ifInErrors' => $inErrorsVal ? (int)$this->parseSnmpValue($inErrorsVal) : 0,
+                    'ifInDiscards' => $inDiscardsVal ? (int)$this->parseSnmpValue($inDiscardsVal) : 0,
                     'ifOutOctets' => $outOctetsVal ? (int)$this->parseSnmpValue($outOctetsVal) : 0,
-                    'ifOutErrors' => isset($ifOutErrors[$oid]) ? (int)$this->parseSnmpValue($ifOutErrors[$oid]) : 0,
+                    'ifOutErrors' => $outErrorsVal ? (int)$this->parseSnmpValue($outErrorsVal) : 0,
+                    'ifOutDiscards' => $outDiscardsVal ? (int)$this->parseSnmpValue($outDiscardsVal) : 0,
                 ];
 
                 // Map interface types to more readable names
@@ -386,8 +408,10 @@ class SNMPService
                 'name' => $interfaceName,
                 'rx_bytes' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.10.$ifIndex", $this->timeout, $this->retries),
                 'tx_bytes' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.16.$ifIndex", $this->timeout, $this->retries),
-                'rx_errors' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.13.$ifIndex", $this->timeout, $this->retries),
+                'rx_errors' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.14.$ifIndex", $this->timeout, $this->retries),
                 'tx_errors' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.20.$ifIndex", $this->timeout, $this->retries),
+                'rx_discards' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.13.$ifIndex", $this->timeout, $this->retries),
+                'tx_discards' => @snmp2_get($this->host, $this->community, "1.3.6.1.2.1.2.2.1.19.$ifIndex", $this->timeout, $this->retries),
             ];
 
             // Parse values
@@ -445,6 +469,8 @@ class SNMPService
                 'tx_bytes' => $stats2['tx_bytes'],
                 'rx_errors' => $stats2['rx_errors'] ?? 0,
                 'tx_errors' => $stats2['tx_errors'] ?? 0,
+                'rx_discards' => $stats2['rx_discards'] ?? 0,
+                'tx_discards' => $stats2['tx_discards'] ?? 0,
                 'timestamp' => now()->toIso8601String(),
             ];
         } catch (Exception $e) {

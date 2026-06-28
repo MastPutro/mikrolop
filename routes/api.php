@@ -9,6 +9,7 @@ use App\Http\Controllers\MikrotikController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\MonitorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +73,9 @@ Route::middleware(['api'])->group(function () {
     Route::get('/mikrotik/resources', [MikrotikController::class, 'getResourcesApi']);
     Route::get('/mikrotik/bandwidth', [MikrotikController::class, 'getInterfaceBandwidth']);
     Route::get('/mikrotik/bandwidth-history', [MikrotikController::class, 'getInterfaceBandwidthHistory']);
+
+    // Monitor Routes
+    Route::get('/monitor/traffic-data', [MonitorController::class, 'getTrafficData']);
 
     // Customer Status Sync Routes
     // Route::prefix('/customer-sync')->group(function () {
