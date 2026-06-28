@@ -88,6 +88,7 @@ export default function ManajemenKeuanganIndex() {
 
     const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth() + 1);
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+    const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
     // Load billing data
     useEffect(() => {
@@ -149,6 +150,27 @@ export default function ManajemenKeuanganIndex() {
         }
     };
 
+    const sendWhatsappBilling = async () => {
+        setSendingWhatsapp(true);
+        try {
+            const response = await axios.post('/api/keuangan/send-whatsapp-billing');
+            if (response.data.success) {
+                toast.success(response.data.message);
+                if (response.data.data.errors?.length > 0) {
+                    response.data.data.errors.forEach((err: string) => {
+                        toast.warning(err);
+                    });
+                }
+            } else {
+                toast.error(response.data.message || 'Gagal mengirim tagihan WhatsApp');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Gagal mengirim tagihan WhatsApp');
+        } finally {
+            setSendingWhatsapp(false);
+        }
+    };
+
     const handleCreateMonthlyBilling = async () => {
         try {
             const response = await axios.post('/api/keuangan/create-monthly-billing');
@@ -156,6 +178,11 @@ export default function ManajemenKeuanganIndex() {
                 toast.success(response.data.message);
                 setBillingCreated(true);
                 await loadBillingData();
+
+                // Kirim tagihan ke WhatsApp jika checkbox dicentang
+                if (editPolicy.formData.send_bill_to_whatsapp) {
+                    await sendWhatsappBilling();
+                }
             }
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Gagal membuat tagihan bulanan');
@@ -224,7 +251,7 @@ export default function ManajemenKeuanganIndex() {
     const verifyPaymentFromServer = async (invoiceId: number) => {
         try {
             const response = await axios.get(`/api/keuangan/verify-payment/${invoiceId}`);
-            
+
             if (response.data.success && response.data.status === 'paid') {
                 toast.success('Status pembayaran berhasil diperbarui!');
                 await loadBillingData();
@@ -251,31 +278,31 @@ export default function ManajemenKeuanganIndex() {
 
         try {
             const response = await axios.post(`/api/keuangan/payment-token/${customer.invoice.id}`);
-            
+
             if (response.data.success) {
                 const snapToken = response.data.data.snap_token;
-                
+
                 // Show Midtrans Snap payment modal
                 if (typeof window !== 'undefined' && window.snap) {
                     window.snap.pay(snapToken, {
-                        onSuccess: function(result: any) {
+                        onSuccess: function (result: any) {
                             toast.success('Pembayaran berhasil diproses, memverifikasi...');
                             // Wait a moment then verify payment status from server
                             setTimeout(() => {
                                 verifyPaymentFromServer(customer.invoice!.id);
                             }, 1500);
                         },
-                        onPending: function(result: any) {
+                        onPending: function (result: any) {
                             toast.info('Pembayaran dalam proses, mohon tunggu konfirmasi dari bank...');
                             // Verify after a delay
                             setTimeout(() => {
                                 verifyPaymentFromServer(customer.invoice!.id);
                             }, 3000);
                         },
-                        onError: function(result: any) {
+                        onError: function (result: any) {
                             toast.error('Pembayaran gagal. Silakan coba lagi.');
                         },
-                        onClose: function() {
+                        onClose: function () {
                             // When user closes without completing, verify if payment actually went through
                             setTimeout(() => {
                                 verifyPaymentFromServer(customer.invoice!.id);
@@ -293,7 +320,7 @@ export default function ManajemenKeuanganIndex() {
         if (isOverdue && status === 'pending') {
             return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Lewat Jatuh Tempo</span>;
         }
-        
+
         switch (status) {
             case 'paid':
                 return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sudah Dibayar</span>;
@@ -352,13 +379,13 @@ export default function ManajemenKeuanganIndex() {
                         </div>
                         <div>
                             <div className="flex gap-2 flex-wrap justify-end">
-                                <button 
-                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mb-2" 
+                                <button
+                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mb-2"
                                     onClick={openEditPolicyModal}
                                 >
                                     Ubah Ketentuan
                                 </button>
-                                <button 
+                                <button
                                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mb-2 disabled:bg-gray-400"
                                     onClick={handleCreateMonthlyBilling}
                                     disabled={billingCreated}
@@ -366,7 +393,7 @@ export default function ManajemenKeuanganIndex() {
                                     {billingCreated ? 'Tagihan Sudah Dibuat' : 'Tagih Bulan Ini'}
                                 </button>
                             </div>
-                            
+
                             <p className="text-sm text-gray-600">Tanggal Jatuh Tempo: {editPolicy.formData.due_date} {new Date(currentYear, currentMonth - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p>
                         </div>
                     </div>
@@ -398,22 +425,8 @@ export default function ManajemenKeuanganIndex() {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {customer.invoice ? (
                                                 <div className="flex gap-2">
-                                                    <button 
-                                                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                                                        onClick={() => {
-                                                            // Redirect to WhatsApp with pre-filled message (if phone number is available)
-                                                            if (customer.phone_number) {
-                                                                const message = `Halo ${customer.name}, berikut link pembayaran tagihan Anda: https://admin.sentolop.biz.id/payment/${customer.invoice!.id}`;
-                                                                window.open(`https://wa.me/${customer.phone_number}?text=${encodeURIComponent(message)}`, '_blank');
-                                                            } else {
-                                                                toast.error('Nomor telepon tidak tersedia');
-                                                            }
-                                                        }}
-                                                    >
-                                                        Kirim Whatsapp
-                                                    </button>
                                                     {canPayOnline(customer) && (
-                                                        <button 
+                                                        <button
                                                             className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
                                                             onClick={() => handlePaymentClick(customer)}
                                                         >
@@ -421,7 +434,7 @@ export default function ManajemenKeuanganIndex() {
                                                         </button>
                                                     )}
                                                     {canPayCash(customer) && (
-                                                        <button 
+                                                        <button
                                                             className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
                                                             onClick={() => openCashPaymentModal(customer)}
                                                         >
@@ -429,7 +442,7 @@ export default function ManajemenKeuanganIndex() {
                                                         </button>
                                                     )}
                                                     {!canPayCash(customer) && !canPayOnline(customer) && (
-                                                        <button 
+                                                        <button
                                                             className="px-3 py-1 bg-gray-600 text-white rounded cursor-not-allowed text-sm"
                                                             disabled
                                                         >
@@ -491,15 +504,15 @@ export default function ManajemenKeuanganIndex() {
                             </label>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <button 
-                                type="button" 
-                                onClick={resetEditPolicyForm} 
+                            <button
+                                type="button"
+                                onClick={resetEditPolicyForm}
                                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
                             >
                                 Batal
                             </button>
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                             >
                                 Simpan
@@ -532,15 +545,15 @@ export default function ManajemenKeuanganIndex() {
                             <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, PDF (Maksimal 5MB)</p>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <button 
-                                type="button" 
-                                onClick={resetCashPaymentForm} 
+                            <button
+                                type="button"
+                                onClick={resetCashPaymentForm}
                                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
                             >
                                 Batal
                             </button>
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                             >
                                 Konfirmasi Pembayaran
@@ -550,7 +563,7 @@ export default function ManajemenKeuanganIndex() {
                 </div>
             </div>
 
-            <ToastContainer 
+            <ToastContainer
                 position="top-right"
                 autoClose={3000}
                 hideProgressBar={false}

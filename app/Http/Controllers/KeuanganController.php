@@ -13,16 +13,19 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\BillingPolicy;
 use App\Services\MidtransService;
+use App\Services\FonnteService;
 use Carbon\Carbon;
 use Midtrans\Snap;
 
 class KeuanganController extends Controller
 {
     protected $midtransService;
+    protected $fonnteService;
 
-    public function __construct(MidtransService $midtransService)
+    public function __construct(MidtransService $midtransService, FonnteService $fonnteService)
     {
         $this->midtransService = $midtransService;
+        $this->fonnteService = $fonnteService;
     }
 
     /**
@@ -680,6 +683,93 @@ class KeuanganController extends Controller
         } catch (\Exception $e) {
             \Log::error('Remove schedule error: ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    /**
+     * Send WhatsApp billing notification to all customers with pending invoices
+     * Uses Fonnte gateway API
+     */
+    public function sendWhatsappBilling()
+    {
+        try {
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
+            $billingPolicy = BillingPolicy::getCurrent();
+
+            // Get all customers with pending invoices for the current month
+            $customers = Customer::where('used', 'yes')
+                ->with(['package', 'invoices' => function ($query) use ($currentMonth, $currentYear) {
+                    $query->where('month', $currentMonth)
+                          ->where('year', $currentYear)
+                          ->where('status', 'pending');
+                }])
+                ->get()
+                ->filter(fn($customer) => $customer->invoices->isNotEmpty());
+
+            if ($customers->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada pelanggan dengan tagihan tertunda untuk bulan ini',
+                ], 400);
+            }
+
+            $sent = 0;
+            $failed = 0;
+            $errors = [];
+
+            $monthName = Carbon::create($currentYear, $currentMonth, 1)->translatedFormat('F Y');
+
+            foreach ($customers as $customer) {
+                $invoice = $customer->invoices->first();
+
+                if (!$customer->phone_number) {
+                    $failed++;
+                    $errors[] = "{$customer->name}: Nomor telepon tidak tersedia";
+                    continue;
+                }
+
+                $formattedAmount = number_format($invoice->amount, 0, ',', '.');
+                $dueDate = Carbon::parse($invoice->due_date)->translatedFormat('d F Y');
+                $paymentUrl = url("/payment/{$invoice->id}");
+
+                $message = "Yth. *{$customer->name}*,\n\n"
+                    . "Berikut adalah tagihan internet Anda untuk bulan *{$monthName}*:\n\n"
+                    . "📦 Paket: *{$customer->package?->name}*\n"
+                    . "💰 Tagihan: *Rp {$formattedAmount}*\n"
+                    . "📅 Jatuh Tempo: *{$dueDate}*\n\n"
+                    . "Silakan lakukan pembayaran sebelum tanggal jatuh tempo untuk menghindari pemutusan layanan.\n\n"
+                    . "🔗 Bayar Online: {$paymentUrl}\n\n"
+                    . "Terima kasih. 🙏";
+
+                $phone = $this->fonnteService->formatPhoneNumber($customer->phone_number);
+                $result = $this->fonnteService->sendMessage($phone, $message);
+
+                if (isset($result['status']) && $result['status'] === true) {
+                    $sent++;
+                } else {
+                    $failed++;
+                    $reason = $result['reason'] ?? 'Unknown error';
+                    $errors[] = "{$customer->name}: {$reason}";
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Tagihan WhatsApp terkirim: {$sent} berhasil, {$failed} gagal dari " . $customers->count() . " pelanggan",
+                'data' => [
+                    'sent' => $sent,
+                    'failed' => $failed,
+                    'total' => $customers->count(),
+                    'errors' => $errors,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Send WhatsApp billing error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim tagihan WhatsApp: ' . $e->getMessage(),
+            ], 500);
         }
     }
 

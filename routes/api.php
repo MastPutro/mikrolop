@@ -99,6 +99,7 @@ Route::middleware(['api'])->group(function () {
         Route::post('/isolir-schedule/{customerId}/{dueDate}/{dueMonth}/{dueYear}', [KeuanganController::class, 'isolirSchedule']);
         Route::post('/remove-isolir/{customerId}', [KeuanganController::class, 'removeIsolir']);
         Route::post('/remove-schedule/{customerId}', [KeuanganController::class, 'removeSchedule']);
+        Route::post('/send-whatsapp-billing', [KeuanganController::class, 'sendWhatsappBilling']);
     });
 
 

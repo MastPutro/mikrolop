@@ -493,8 +493,8 @@ export default function ManajemenUserIndex(props: { auth: any; customers?: Custo
                                                     key={i + 1}
                                                     onClick={() => setCurrentPage(i + 1)}
                                                     className={`px-3 py-1 rounded-md ${currentPage === i + 1
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                         }`}
                                                 >
                                                     {i + 1}
