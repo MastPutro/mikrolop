@@ -140,7 +140,7 @@ class TicketController extends Controller
             'status' => 'sometimes|in:open,in_progress,pending,resolved,closed',
             'priority' => 'sometimes|in:low,medium,high,urgent',
             'category' => 'sometimes|in:billing,technical,service,complaint,other',
-            'assigned_to' => 'sometimes|nullable|exists:customers,id',
+            'assigned_to' => 'sometimes|nullable|exists:technicians,id',
             'resolution_notes' => 'sometimes|nullable|string',
         ]);
 

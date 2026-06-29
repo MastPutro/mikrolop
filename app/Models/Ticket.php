@@ -40,11 +40,11 @@ class Ticket extends Model
     }
 
     /**
-     * Get the customer assigned to this ticket
+     * Get the technician assigned to this ticket
      */
     public function assignedTo(): BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'assigned_to');
+        return $this->belongsTo(Technician::class, 'assigned_to');
     }
 
     /**

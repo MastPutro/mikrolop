@@ -10,6 +10,7 @@ use App\Http\Controllers\ServerController;
 use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\TechnicianController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -95,6 +96,7 @@ Route::middleware(['api'])->group(function () {
     // Keuangan (Billing) Routes
     Route::prefix('/keuangan')->group(function () {
         Route::get('/billing-data', [KeuanganController::class, 'getBillingData']);
+        Route::get('/payment-history/{customerName}', [KeuanganController::class, 'getPaymentHistory']);
         Route::post('/billing-policy', [KeuanganController::class, 'updateBillingPolicy']);
         Route::post('/create-monthly-billing', [KeuanganController::class, 'createMonthlyBilling']);
         Route::post('/payment-token/{invoiceId}', [KeuanganController::class, 'createPaymentToken']);
@@ -107,6 +109,12 @@ Route::middleware(['api'])->group(function () {
     });
 
 
+
+    // Technician Routes
+    Route::get('/technicians', [TechnicianController::class, 'list']);
+    Route::post('/technicians', [TechnicianController::class, 'store']);
+    Route::put('/technicians/{id}', [TechnicianController::class, 'update']);
+    Route::delete('/technicians/{id}', [TechnicianController::class, 'destroy']);
 
     // Ticket/Help Desk Routes
     Route::prefix('/tickets')->group(function () {

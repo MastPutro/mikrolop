@@ -63,7 +63,7 @@ export default function TicketShow({ ticketId }: Props) {
             setTicket(response.data.data);
             setNewStatus(response.data.data.status);
             setNewPriority(response.data.data.priority);
-            
+
             // Fetch replies
             const repliesResponse = await axios.get(`/api/tickets/${ticketId}/replies`);
             setReplies(repliesResponse.data.data.data || []);
@@ -87,7 +87,7 @@ export default function TicketShow({ ticketId }: Props) {
 
             setReplies([...replies, response.data.data]);
             setReplyMessage('');
-            
+
             // Update ticket
             fetchTicket();
         } catch (error) {
@@ -124,7 +124,7 @@ export default function TicketShow({ ticketId }: Props) {
     };
 
     const getStatusBadgeColor = (status: string) => {
-        switch(status) {
+        switch (status) {
             case 'open':
                 return 'bg-yellow-100 text-yellow-800';
             case 'in_progress':
@@ -141,7 +141,7 @@ export default function TicketShow({ ticketId }: Props) {
     };
 
     const getPriorityBadgeColor = (priority: string) => {
-        switch(priority) {
+        switch (priority) {
             case 'low':
                 return 'bg-green-100 text-green-800';
             case 'medium':
@@ -203,7 +203,7 @@ export default function TicketShow({ ticketId }: Props) {
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Detail Tiket</h2>}>
             <Head title={`Tiket ${ticket.ticket_number}`} />
-            
+
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
                     {/* Back Link */}
@@ -229,7 +229,7 @@ export default function TicketShow({ ticketId }: Props) {
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Status</p>
                                 {editingStatus ? (
-                                    <select 
+                                    <select
                                         value={newStatus}
                                         onChange={(e) => handleStatusChange(e.target.value)}
                                         className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
@@ -241,7 +241,7 @@ export default function TicketShow({ ticketId }: Props) {
                                         <option value="closed">Ditutup</option>
                                     </select>
                                 ) : (
-                                    <button 
+                                    <button
                                         onClick={() => setEditingStatus(true)}
                                         className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(ticket.status)} cursor-pointer hover:opacity-80`}
                                     >
@@ -253,7 +253,7 @@ export default function TicketShow({ ticketId }: Props) {
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Prioritas</p>
                                 {editingPriority ? (
-                                    <select 
+                                    <select
                                         value={newPriority}
                                         onChange={(e) => handlePriorityChange(e.target.value)}
                                         className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
@@ -264,7 +264,7 @@ export default function TicketShow({ ticketId }: Props) {
                                         <option value="urgent">Mendesak</option>
                                     </select>
                                 ) : (
-                                    <button 
+                                    <button
                                         onClick={() => setEditingPriority(true)}
                                         className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getPriorityBadgeColor(ticket.priority)} cursor-pointer hover:opacity-80`}
                                     >
@@ -291,7 +291,7 @@ export default function TicketShow({ ticketId }: Props) {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-600 mb-1">Ditugaskan Ke</p>
+                                <p className="text-sm text-gray-600 mb-1">Teknisi Yang Mengerjakan</p>
                                 <p className="text-sm font-semibold text-gray-900">{ticket.assigned_to?.name || 'Belum ditugaskan'}</p>
                             </div>
                         </div>

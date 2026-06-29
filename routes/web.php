@@ -13,6 +13,7 @@ use App\Http\Controllers\ServerController;
 use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\HelpdeskController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\TechnicianController;
 
 Route::get('/', function () {
     // return Inertia::render('Welcome', [
@@ -58,6 +59,9 @@ Route::middleware('auth')->group(function () {
 
     // History of payments page
     Route::get('/history', [KeuanganController::class, 'history'])->name('history.index');
+
+    // Manajemen Teknisi
+    Route::get('/manajemen-teknisi', [TechnicianController::class, 'index'])->name('manajemen.teknisi.index');
 });
 
 // Public payment page (no authentication required)

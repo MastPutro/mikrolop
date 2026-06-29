@@ -794,5 +794,35 @@ class KeuanganController extends Controller
             }),
         ]);
     }
+
+    /**
+     * API for History of payment client
+     */
+    public function getPaymentHistory($customerName)
+    {
+        try {
+            $customer = Customer::where('name', $customerName)->first();
+            $payments = Payment::where('customer_id', $customer->id)->get();
+            return response()->json([
+                'data' => $payments->map(function ($payment) {
+                    return [
+                        'invoice_id' => $payment->invoice_id,
+                        'customer_id' => $payment->customer_id,
+                        'amount' => $payment->amount,
+                        'payment_method' => $payment->method,
+                        'midtrans_id' => $payment->midtrans_transaction_id,
+                        'proof_of_payment' => $payment->proof_of_payment,
+                        'status' => $payment->status,
+                        'created_at' => $payment->created_at,
+                        'updated_at' => $payment->updated_at,
+                    ];
+                }),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengambil history pembayaran',
+            ], 500);
+        }
+    }
 }
 

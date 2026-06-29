@@ -3,9 +3,12 @@ import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import axios from 'axios';
 
-interface User {
+interface Technician {
     id: number;
     name: string;
+    phone: string | null;
+    specialization: string | null;
+    status: 'active' | 'inactive';
 }
 
 interface TicketForm {
@@ -23,7 +26,7 @@ interface Props {
 }
 
 export default function TicketEdit({ ticketId }: Props) {
-    const [users, setUsers] = useState<User[]>([]);
+    const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [formData, setFormData] = useState<TicketForm>({
@@ -39,16 +42,16 @@ export default function TicketEdit({ ticketId }: Props) {
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
-        fetchUsers();
+        fetchTechnicians();
         fetchTicket();
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchTechnicians = async () => {
         try {
-            const response = await axios.get('/api/user-list');
-            setUsers(response.data.data || []);
+            const response = await axios.get('/api/technicians', { params: { status: 'active' } });
+            setTechnicians(response.data.data || []);
         } catch (error) {
-            console.error('Error fetching users:', error);
+            console.error('Error fetching technicians:', error);
         }
     };
 
@@ -94,9 +97,9 @@ export default function TicketEdit({ ticketId }: Props) {
 
         try {
             await axios.patch(`/api/tickets/${ticketId}`, formData);
-            
+
             setSuccess(true);
-            
+
             // Redirect after success
             setTimeout(() => {
                 window.location.href = `/helpdesk/${ticketId}`;
@@ -130,7 +133,7 @@ export default function TicketEdit({ ticketId }: Props) {
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Edit Tiket</h2>}>
             <Head title="Edit Tiket" />
-            
+
             <div className="py-12">
                 <div className="mx-auto max-w-2xl sm:px-6 lg:px-8">
                     {/* Back Link */}
@@ -167,9 +170,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.title ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                 />
                                 {errors.title && (
                                     <p className="mt-1 text-sm text-red-500">{errors.title}</p>
@@ -185,9 +187,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     name="description"
                                     value={formData.description}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.description ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.description ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                     rows={4}
                                 />
                                 {errors.description && (
@@ -204,9 +205,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     name="status"
                                     value={formData.status}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.status ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.status ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                 >
                                     <option value="open">Terbuka</option>
                                     <option value="in_progress">Sedang Diproses</option>
@@ -228,9 +228,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     name="priority"
                                     value={formData.priority}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.priority ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.priority ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                 >
                                     <option value="low">Rendah</option>
                                     <option value="medium">Sedang</option>
@@ -251,9 +250,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     name="category"
                                     value={formData.category}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.category ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.category ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                 >
                                     <option value="billing">Penagihan</option>
                                     <option value="technical">Teknis</option>
@@ -269,20 +267,19 @@ export default function TicketEdit({ ticketId }: Props) {
                             {/* Assigned To */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Ditugaskan Ke
+                                    Petugas
                                 </label>
                                 <select
                                     name="assigned_to"
                                     value={formData.assigned_to}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.assigned_to ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.assigned_to ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                 >
-                                    <option value="">-- Tidak Ditugaskan --</option>
-                                    {users.map(user => (
-                                        <option key={user.id} value={user.id}>
-                                            {user.name}
+                                    <option value="">-- Pilih Teknisi --</option>
+                                    {technicians.map(tech => (
+                                        <option key={tech.id} value={tech.id}>
+                                            {tech.name}{tech.specialization ? ` — ${tech.specialization}` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -301,9 +298,8 @@ export default function TicketEdit({ ticketId }: Props) {
                                     value={formData.resolution_notes}
                                     onChange={handleChange}
                                     placeholder="Tambahkan catatan tentang cara tiket diselesaikan"
-                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.resolution_notes ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.resolution_notes ? 'border-red-500' : 'border-gray-300'
+                                        }`}
                                     rows={4}
                                 />
                                 {errors.resolution_notes && (

@@ -1,0 +1,99 @@
+{
+    "success": true,
+    "data": {
+        "customers": [
+            {
+                "id": 17,
+                "name": "kita",
+                "phone_number": "083890855876",
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": {
+                    "id": 9,
+                    "amount": 100,
+                    "status": "pending",
+                    "payment_method": null,
+                    "due_date": "2026-06-30T16:59:59.000000Z",
+                    "paid_date": null,
+                    "is_overdue": false
+                }
+            },
+            {
+                "id": 20,
+                "name": "kedawung",
+                "phone_number": "083890855876",
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": {
+                    "id": 10,
+                    "amount": 100,
+                    "status": "pending",
+                    "payment_method": null,
+                    "due_date": "2026-06-30T16:59:59.000000Z",
+                    "paid_date": null,
+                    "is_overdue": false
+                }
+            },
+            {
+                "id": 23,
+                "name": "camat",
+                "phone_number": "083890855876",
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": {
+                    "id": 11,
+                    "amount": 100,
+                    "status": "pending",
+                    "payment_method": null,
+                    "due_date": "2026-06-30T16:59:59.000000Z",
+                    "paid_date": null,
+                    "is_overdue": false
+                }
+            },
+            {
+                "id": 24,
+                "name": "leli",
+                "phone_number": "083890855876",
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": {
+                    "id": 12,
+                    "amount": 100,
+                    "status": "pending",
+                    "payment_method": null,
+                    "due_date": "2026-06-30T16:59:59.000000Z",
+                    "paid_date": null,
+                    "is_overdue": false
+                }
+            },
+            {
+                "id": 25,
+                "name": "Sempak",
+                "phone_number": null,
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": null
+            },
+            {
+                "id": 26,
+                "name": "Jembut",
+                "phone_number": null,
+                "package_name": "Kere",
+                "package_price": "100.00",
+                "invoice": null
+            }
+        ],
+        "billing_policy": {
+            "due_date": 30,
+            "send_bill_to_whatsapp": true
+        },
+        "stats": {
+            "total_customers": 6,
+            "pending_payment": 6,
+            "paid": 0,
+            "overdue": 0
+        },
+        "current_month": 6,
+        "current_year": 2026
+    }
+}
